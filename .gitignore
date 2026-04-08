@@ -4,3 +4,5 @@ dist
 *.local
 .env
 .env.*
+KakaoTalk_*.png
+tsconfig.tsbuildinfo
