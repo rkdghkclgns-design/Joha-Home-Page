@@ -43,7 +43,7 @@ export default function StorySection() {
                   <p>
                     주하는 이 마법 같은 그림들을 모두와 나누고 싶었어요. 
                     그래서 별빛 가루와 무지개 물감으로 특별한 갤러리를 만들었답니다. 
-                    이곳이 바로 <strong>"주하의 경이로운 갤러리"</strong>예요!
+                    이곳이 바로 <strong>"주하의 마법 갤러리"</strong>예요!
                   </p>
                 </div>
               </div>
