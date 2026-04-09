@@ -16,7 +16,7 @@ export default function HeroSection() {
       </div>
       <div className="hero-content">
         <div className="header-ornament">✦</div>
-        <h1 className="header-title">Joha</h1>
+        <h1 className="header-title">Juha</h1>
         <p className="header-subtitle">Gallery of Wonders</p>
         <div className="header-line" />
       </div>

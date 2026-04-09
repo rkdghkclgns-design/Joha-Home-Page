@@ -15,6 +15,11 @@ import CardEditor from './components/CardEditor'
 import CardDetail from './components/CardDetail'
 import FloatingMascots from './components/FloatingMascots'
 import HeroSection from './components/HeroSection'
+import ClickParticles from './components/ClickParticles'
+import ThemeToggle from './components/ThemeToggle'
+import EasterEgg from './components/EasterEgg'
+import Quiz from './components/Quiz'
+import StorySection from './components/StorySection'
 import './App.css'
 
 export default function App() {
@@ -72,7 +77,7 @@ export default function App() {
       setShowEditor(true)
     } else if (action === 'delete' && cardId) {
       try {
-        await deleteCardDB(cardId)          // Supabase에서 삭제
+        await deleteCardDB(cardId)
         setCards(prev => prev.filter(c => c.id !== cardId))
         setSelectedCard(null)
       } catch (err) {
@@ -102,10 +107,9 @@ export default function App() {
     }
   }
 
-  // ── 카드 저장 (신규 등록 or 수정) → Supabase에 직접 저장 ──
   const handleSaveCard = async (card: GalleryCard) => {
     try {
-      await saveCardDB(card)                // Supabase에 저장
+      await saveCardDB(card)
       setCards(prev => {
         const exists = prev.find(c => c.id === card.id)
         if (exists) {
@@ -121,12 +125,11 @@ export default function App() {
     }
   }
 
-  // ── 카테고리 추가 → Supabase에 직접 저장 ──
   const handleAddCategory = async () => {
     const trimmed = newCategory.trim()
     if (trimmed && !categories.includes(trimmed)) {
       try {
-        await addCategoryDB(trimmed)        // Supabase에 저장
+        await addCategoryDB(trimmed)
         setCategories(prev => [...prev, trimmed])
         setNewCategory('')
       } catch (err) {
@@ -136,11 +139,10 @@ export default function App() {
     }
   }
 
-  // ── 카테고리 삭제 → Supabase에서 삭제 ──
   const handleRemoveCategory = async (cat: string) => {
     if (DEFAULT_CATEGORIES.includes(cat)) return
     try {
-      await removeCategoryDB(cat)           // Supabase에서 삭제
+      await removeCategoryDB(cat)
       setCategories(prev => prev.filter(c => c !== cat))
       if (activeFilter === cat) setActiveFilter('전체')
     } catch (err) {
@@ -154,7 +156,6 @@ export default function App() {
     setShowCategoryEditor(false)
   }
 
-  // ── 로딩 중 화면 ──
   if (loading) {
     return (
       <div className="app" style={{
@@ -172,6 +173,15 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* 클릭 파티클 효과 */}
+      <ClickParticles />
+
+      {/* 테마 토글 (우측 상단 고정) */}
+      <ThemeToggle />
+
+      {/* 이스터에그 숨겨진 캐릭터들 */}
+      <EasterEgg />
+
       <FloatingMascots />
 
       <div className="ornament ornament-tl" />
@@ -181,6 +191,9 @@ export default function App() {
 
       {/* Hero Video Section */}
       <HeroSection />
+
+      {/* 캐릭터 스토리 섹션 */}
+      <StorySection />
 
       {/* Filter Bar */}
       <nav className="filter-bar">
@@ -281,14 +294,17 @@ export default function App() {
         )}
       </main>
 
+      {/* 심리테스트 퀴즈 버튼 */}
+      <Quiz />
+
       {/* Footer */}
       <footer className="footer">
         <div className="footer-line" />
-        <p className="footer-text">✦ Joha — Gallery of Wonders ✦</p>
-        <p className="footer-copy">&copy; 2026 Joha. All rights reserved.</p>
+        <p className="footer-text">✦ Juha — Gallery of Wonders ✦</p>
+        <p className="footer-copy">&copy; 2026 Juha. All rights reserved.</p>
       </footer>
 
-      {/* Modals — z-index stacking: password(200) > editor(150) > detail(100) */}
+      {/* Modals */}
       {selectedCard && !showEditor && (
         <CardDetail
           card={selectedCard}

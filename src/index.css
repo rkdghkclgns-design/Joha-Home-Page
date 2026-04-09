@@ -1,5 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 
+/* ═══════════════════════════════════════════════════
+   Day Theme (기본 · 포근한 낮)
+   ═══════════════════════════════════════════════════ */
 :root {
   --color-ivory: #FFF8F0;
   --color-cream: #FDF5E6;
@@ -30,14 +33,84 @@
   --transition-slow: 0.5s ease;
 
   --max-width: 1200px;
+
+  --bg-body: var(--color-ivory);
+  --bg-filter: rgba(255, 248, 240, 0.9);
+  --border-filter: rgba(196, 162, 101, 0.15);
 }
 
-*,
-*::before,
-*::after {
+/* ═══════════════════════════════════════════════════
+   Night Theme (신비로운 밤 · 별빛)
+   ═══════════════════════════════════════════════════ */
+[data-theme="night"] {
+  --color-ivory: #0F1629;
+  --color-cream: #1A2340;
+  --color-gold: #E8D5A3;
+  --color-gold-light: #F0E4B8;
+  --color-charcoal: #E8E4DF;
+  --color-warm-gray: #8899BB;
+  --color-soft-white: #1C2A4A;
+  --color-burgundy: #C77B8B;
+  --color-burgundy-light: #D99AA8;
+
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 8px 32px rgba(100, 140, 255, 0.15);
+  --shadow-frame: inset 0 2px 6px rgba(200, 200, 255, 0.1);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  --bg-body: #0F1629;
+  --bg-filter: rgba(15, 22, 41, 0.95);
+  --border-filter: rgba(100, 140, 255, 0.15);
+}
+
+[data-theme="night"] body {
+  background-color: #0F1629;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(100, 140, 255, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 60%, rgba(180, 100, 255, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 50% 90%, rgba(100, 200, 255, 0.03) 0%, transparent 50%);
+}
+
+/* ── Night 별 배경 ── */
+[data-theme="night"] .app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(2px 2px at 15% 80%, rgba(200,220,255,0.6), transparent),
+    radial-gradient(2px 2px at 85% 15%, rgba(200,220,255,0.4), transparent),
+    radial-gradient(1px 1px at 45% 50%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 60% 85%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 25% 45%, rgba(200,220,255,0.3), transparent);
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════
+   Global Styles
+   ═══════════════════════════════════════════════════ */
+
+/* ── 커스텀 커서 (귀여운 발바닥) ── */
+*, *::before, *::after {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='32' viewBox='0 0 28 32'%3E%3Ctext y='24' font-size='24'%3E🐾%3C/text%3E%3C/svg%3E") 8 8, auto;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+button, a, .card, [role="button"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='32' viewBox='0 0 28 32'%3E%3Ctext y='24' font-size='24'%3E✨%3C/text%3E%3C/svg%3E") 8 8, pointer;
 }
 
 html {
@@ -47,7 +120,7 @@ html {
 
 body {
   font-family: var(--font-body);
-  background-color: var(--color-ivory);
+  background-color: var(--bg-body);
   color: var(--color-charcoal);
   line-height: 1.6;
   min-height: 100vh;
@@ -55,6 +128,7 @@ body {
     radial-gradient(circle at 20% 50%, rgba(196, 162, 101, 0.04) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(107, 39, 55, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 50% 80%, rgba(45, 74, 62, 0.03) 0%, transparent 50%);
+  transition: background-color 0.6s ease, color 0.6s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -75,7 +149,6 @@ a:hover {
 }
 
 button {
-  cursor: pointer;
   font-family: var(--font-body);
   border: none;
   outline: none;
