@@ -376,28 +376,36 @@ export default function ColoringBook({ onClose }: Props) {
         <p className="modal-desc">사진을 올리면 색칠할 수 있는 도안이 만들어집니다!</p>
 
         {!outlineSrc ? (
-          /* ── 업로드 화면 ── */
+          /* ── 업로드 / 진행 화면 ── */
           <div className="coloring-upload">
-            <div
-              className="file-upload-area"
-              onClick={() => fileRef.current?.click()}
-              style={processing ? { opacity: 0.6, pointerEvents: 'none' } : undefined}
-            >
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFile}
-                className="file-input-hidden"
-              />
-              <div className="file-upload-content">
-                <span className="file-upload-icon">{processing ? '⏳' : '🖼️'}</span>
-                <span className="file-upload-text">
-                  {processing ? '도안을 만드는 중...' : '사진을 선택하세요'}
-                </span>
-                <span className="file-upload-hint">jpg, png 이미지</span>
+            {processing ? (
+              <div className="coloring-progress">
+                <div className="coloring-progress-spinner" />
+                <p className="coloring-progress-title">도안을 만들고 있어요...</p>
+                <p className="coloring-progress-sub">사진의 윤곽선을 추출하는 중입니다 ✨</p>
+                <div className="coloring-progress-bar">
+                  <div className="coloring-progress-fill" />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div
+                className="file-upload-area"
+                onClick={() => fileRef.current?.click()}
+              >
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFile}
+                  className="file-input-hidden"
+                />
+                <div className="file-upload-content">
+                  <span className="file-upload-icon">🖼️</span>
+                  <span className="file-upload-text">사진을 선택하세요</span>
+                  <span className="file-upload-hint">jpg, png 이미지</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ── 작업 화면 ── */
