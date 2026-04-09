@@ -23,6 +23,8 @@ import EasterEgg from './components/EasterEgg'
 import Quiz from './components/Quiz'
 import StorySection from './components/StorySection'
 import ColoringBook from './components/ColoringBook'
+import Diary from './components/Diary'
+import ShootingStars from './components/ShootingStars'
 import './App.css'
 
 export default function App() {
@@ -39,6 +41,7 @@ export default function App() {
   const [showCategoryEditor, setShowCategoryEditor] = useState(false)
   const [newCategory, setNewCategory] = useState('')
   const [showColoringBook, setShowColoringBook] = useState(false)
+  const [showDiary, setShowDiary] = useState(false)
   const [loading, setLoading] = useState(true)
   const [likedCards, setLikedCards] = useState<Set<string>>(() => {
     try {
@@ -225,6 +228,7 @@ export default function App() {
       <EasterEgg />
 
       <FloatingMascots />
+      <ShootingStars />
 
       <div className="ornament ornament-tl" />
       <div className="ornament ornament-tr" />
@@ -284,6 +288,12 @@ export default function App() {
               onClick={() => setShowColoringBook(true)}
             >
               🎨 컬러링북
+            </button>
+            <button
+              className="add-btn diary-btn"
+              onClick={() => setShowDiary(true)}
+            >
+              📖 일기장
             </button>
           </div>
         </div>
@@ -382,6 +392,10 @@ export default function App() {
 
       {showColoringBook && (
         <ColoringBook onClose={() => setShowColoringBook(false)} />
+      )}
+
+      {showDiary && (
+        <Diary onClose={() => setShowDiary(false)} />
       )}
 
       {showPasswordModal && (

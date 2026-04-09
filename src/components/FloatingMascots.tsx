@@ -115,11 +115,11 @@ export default function FloatingMascots() {
     <div
       ref={containerRef}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         inset: 0,
         overflow: 'hidden',
         pointerEvents: 'none',
-        zIndex: 5,
+        zIndex: 9999,
       }}
     >
       {mascots.map(m => (
