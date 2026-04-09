@@ -19,6 +19,18 @@ export default function GalleryCardItem({ card, index, liked, onClick, onLike }:
     >
       <div className="card-frame">
         <div className="card-image-wrap">
+          {/* 블러 배경 (여백을 자연스럽게 채움) */}
+          {!isVideo && (
+            <img
+              src={card.mediaUrl}
+              alt=""
+              className="card-bg-blur"
+              aria-hidden="true"
+              loading="lazy"
+            />
+          )}
+
+          {/* 실제 미디어 (contain으로 전체 표시) */}
           {isVideo ? (
             <video
               src={card.mediaUrl}
