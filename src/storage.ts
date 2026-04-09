@@ -1,143 +1,159 @@
 /**
- * IndexedDB 기반 저장소
- * localStorage는 5MB 제한이 있어서, base64 이미지를 저장하면 금방 용량 초과됨.
- * IndexedDB는 수백 MB까지 저장 가능하므로 이미지/동영상 base64도 안전하게 저장.
+ * Supabase 기반 저장소
+ * ────────────────────
+ * 기존 IndexedDB 대신 Supabase 클라우드 DB를 사용하여
+ * 어떤 환경(다른 PC, 모바일 등)에서도 동일한 데이터를 보여줍니다.
+ * 관리자 모드에서 수정한 내역이 실시간으로 저장·반영됩니다.
  */
 
+import { supabase } from './supabaseClient'
 import { GalleryCard } from './types'
 
-const DB_NAME = 'joha-gallery-db'
-const DB_VERSION = 1
-const STORE_CARDS = 'cards'
-const STORE_META = 'meta'
-
-function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION)
-
-        request.onupgradeneeded = () => {
-            const db = request.result
-            if (!db.objectStoreNames.contains(STORE_CARDS)) {
-                db.createObjectStore(STORE_CARDS, { keyPath: 'id' })
-            }
-            if (!db.objectStoreNames.contains(STORE_META)) {
-                db.createObjectStore(STORE_META)
-            }
-        }
-
-        request.onsuccess = () => resolve(request.result)
-        request.onerror = () => reject(request.error)
-    })
+// ── DB row ↔ GalleryCard 변환 유틸 ──────────────────────
+interface CardRow {
+  id: string
+  title: string
+  description: string
+  media_url: string
+  media_type: string
+  category: string
+  created_at: string
 }
 
-/** 카드 목록 저장 (IndexedDB) */
-export async function saveCardsDB(cards: GalleryCard[]): Promise<void> {
-    const db = await openDB()
-    const tx = db.transaction(STORE_CARDS, 'readwrite')
-    const store = tx.objectStore(STORE_CARDS)
-
-    // 기존 데이터 전부 지우고 새로 넣기
-    store.clear()
-    for (const card of cards) {
-        store.put(card)
-    }
-
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => { db.close(); resolve() }
-        tx.onerror = () => { db.close(); reject(tx.error) }
-    })
+function rowToCard(row: CardRow): GalleryCard {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    mediaUrl: row.media_url,
+    mediaType: row.media_type as 'image' | 'video',
+    category: row.category,
+    createdAt: row.created_at,
+  }
 }
 
-/** 카드 목록 불러오기 (IndexedDB) */
-export async function loadCardsDB(): Promise<GalleryCard[] | null> {
-    try {
-        const db = await openDB()
-        const tx = db.transaction(STORE_CARDS, 'readonly')
-        const store = tx.objectStore(STORE_CARDS)
-        const request = store.getAll()
-
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => {
-                db.close()
-                const result = request.result as GalleryCard[]
-                resolve(result.length > 0 ? result : null)
-            }
-            request.onerror = () => { db.close(); reject(request.error) }
-        })
-    } catch {
-        return null
-    }
+function cardToRow(card: GalleryCard): CardRow {
+  return {
+    id: card.id,
+    title: card.title,
+    description: card.description,
+    media_url: card.mediaUrl,
+    media_type: card.mediaType,
+    category: card.category,
+    created_at: card.createdAt,
+  }
 }
 
-/** 카테고리 저장 (IndexedDB) */
-export async function saveCategoriesDB(categories: string[]): Promise<void> {
-    const db = await openDB()
-    const tx = db.transaction(STORE_META, 'readwrite')
-    const store = tx.objectStore(STORE_META)
-    store.put(categories, 'categories')
+// ── 카드 CRUD ───────────────────────────────────────────
 
-    return new Promise((resolve, reject) => {
-        tx.oncomplete = () => { db.close(); resolve() }
-        tx.onerror = () => { db.close(); reject(tx.error) }
-    })
+/** 카드 전체 목록 불러오기 */
+export async function loadCardsDB(): Promise<GalleryCard[]> {
+  const { data, error } = await supabase
+    .from('cards')
+    .select('*')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('카드 불러오기 실패:', error.message)
+    return []
+  }
+
+  return (data as CardRow[]).map(rowToCard)
 }
 
-/** 카테고리 불러오기 (IndexedDB) */
-export async function loadCategoriesDB(): Promise<string[] | null> {
-    try {
-        const db = await openDB()
-        const tx = db.transaction(STORE_META, 'readonly')
-        const store = tx.objectStore(STORE_META)
-        const request = store.get('categories')
+/** 카드 한 장 저장 (신규 등록 또는 수정) */
+export async function saveCardDB(card: GalleryCard): Promise<void> {
+  const { error } = await supabase
+    .from('cards')
+    .upsert(cardToRow(card))
 
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => {
-                db.close()
-                resolve(request.result ?? null)
-            }
-            request.onerror = () => { db.close(); reject(request.error) }
-        })
-    } catch {
-        return null
-    }
+  if (error) {
+    console.error('카드 저장 실패:', error.message)
+    throw error
+  }
 }
+
+/** 카드 삭제 */
+export async function deleteCardDB(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('cards')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('카드 삭제 실패:', error.message)
+    throw error
+  }
+}
+
+// ── 카테고리 CRUD ───────────────────────────────────────
+
+/** 카테고리 전체 불러오기 */
+export async function loadCategoriesDB(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('name')
+    .order('id', { ascending: true })
+
+  if (error) {
+    console.error('카테고리 불러오기 실패:', error.message)
+    return []
+  }
+
+  return (data as { name: string }[]).map(r => r.name)
+}
+
+/** 카테고리 추가 */
+export async function addCategoryDB(name: string): Promise<void> {
+  const { error } = await supabase
+    .from('categories')
+    .insert({ name })
+
+  if (error) {
+    console.error('카테고리 추가 실패:', error.message)
+    throw error
+  }
+}
+
+/** 카테고리 삭제 */
+export async function removeCategoryDB(name: string): Promise<void> {
+  const { error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('name', name)
+
+  if (error) {
+    console.error('카테고리 삭제 실패:', error.message)
+    throw error
+  }
+}
+
+// ── 미디어 파일 업로드 (Supabase Storage) ───────────────
 
 /**
- * 기존 localStorage 데이터를 IndexedDB로 마이그레이션.
- * 마이그레이션 후 localStorage의 큰 데이터를 삭제하여 용량 확보.
+ * 파일을 Supabase Storage 'media' 버킷에 업로드한 뒤
+ * public URL을 반환합니다.
  */
-export async function migrateFromLocalStorage(): Promise<{
-    cards: GalleryCard[] | null
-    categories: string[] | null
-}> {
-    let cards: GalleryCard[] | null = null
-    let categories: string[] | null = null
+export async function uploadMedia(file: File): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'bin'
+  const fileName = `${crypto.randomUUID()}.${ext}`
+  const filePath = `uploads/${fileName}`
 
-    try {
-        const storedCards = localStorage.getItem('joha-gallery-cards')
-        if (storedCards) {
-            cards = JSON.parse(storedCards)
-            if (cards && cards.length > 0) {
-                await saveCardsDB(cards)
-            }
-            localStorage.removeItem('joha-gallery-cards')
-        }
-    } catch {
-        // localStorage 읽기 실패 시 무시
-    }
+  const { error } = await supabase.storage
+    .from('media')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    })
 
-    try {
-        const storedCats = localStorage.getItem('joha-gallery-categories')
-        if (storedCats) {
-            categories = JSON.parse(storedCats)
-            if (categories && categories.length > 0) {
-                await saveCategoriesDB(categories)
-            }
-            localStorage.removeItem('joha-gallery-categories')
-        }
-    } catch {
-        // localStorage 읽기 실패 시 무시
-    }
+  if (error) {
+    console.error('파일 업로드 실패:', error.message)
+    throw error
+  }
 
-    return { cards, categories }
+  const { data } = supabase.storage
+    .from('media')
+    .getPublicUrl(filePath)
+
+  return data.publicUrl
 }

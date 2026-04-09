@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { GalleryCard } from './types'
 import { defaultCards, DEFAULT_CATEGORIES } from './defaultData'
-import { saveCardsDB, loadCardsDB, saveCategoriesDB, loadCategoriesDB, migrateFromLocalStorage } from './storage'
+import {
+  loadCardsDB,
+  saveCardDB,
+  deleteCardDB,
+  loadCategoriesDB,
+  addCategoryDB,
+  removeCategoryDB,
+} from './storage'
 import GalleryCardItem from './components/GalleryCardItem'
 import PasswordModal from './components/PasswordModal'
 import CardEditor from './components/CardEditor'
@@ -23,37 +30,29 @@ export default function App() {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null)
   const [showCategoryEditor, setShowCategoryEditor] = useState(false)
   const [newCategory, setNewCategory] = useState('')
+  const [loading, setLoading] = useState(true)
   const isInitRef = useRef(false)
 
-  // ── 앱 시작 시 IndexedDB에서 데이터 로드 (+ localStorage 마이그레이션) ──
+  // ── 앱 시작 시 Supabase에서 데이터 로드 ──
   useEffect(() => {
     async function init() {
-      // 1) 기존 localStorage 데이터가 있으면 IndexedDB로 옮기기
-      const migrated = await migrateFromLocalStorage()
+      try {
+        const [dbCards, dbCats] = await Promise.all([
+          loadCardsDB(),
+          loadCategoriesDB(),
+        ])
 
-      // 2) IndexedDB에서 불러오기
-      const dbCards = migrated.cards ?? await loadCardsDB()
-      const dbCats = migrated.categories ?? await loadCategoriesDB()
-
-      if (dbCards && dbCards.length > 0) setCards(dbCards)
-      if (dbCats && dbCats.length > 0) setCategories(dbCats)
-
-      isInitRef.current = true
+        if (dbCards.length > 0) setCards(dbCards)
+        if (dbCats.length > 0) setCategories(dbCats)
+      } catch (err) {
+        console.error('Supabase 초기 로드 실패, 기본 데이터 사용:', err)
+      } finally {
+        isInitRef.current = true
+        setLoading(false)
+      }
     }
     init()
   }, [])
-
-  // ── 카드가 변경될 때마다 IndexedDB에 저장 ──
-  useEffect(() => {
-    if (!isInitRef.current) return
-    saveCardsDB(cards).catch(console.error)
-  }, [cards])
-
-  // ── 카테고리가 변경될 때마다 IndexedDB에 저장 ──
-  useEffect(() => {
-    if (!isInitRef.current) return
-    saveCategoriesDB(categories).catch(console.error)
-  }, [categories])
 
   const allCategories = ['전체', ...categories]
 
@@ -61,7 +60,7 @@ export default function App() {
     ? cards
     : cards.filter(c => c.category === activeFilter)
 
-  const executeAction = useCallback((action: 'add' | 'edit' | 'delete', cardId?: string) => {
+  const executeAction = useCallback(async (action: 'add' | 'edit' | 'delete', cardId?: string) => {
     if (action === 'add') {
       setEditingCard(null)
       setSelectedCard(null)
@@ -72,8 +71,14 @@ export default function App() {
       setSelectedCard(null)
       setShowEditor(true)
     } else if (action === 'delete' && cardId) {
-      setCards(prev => prev.filter(c => c.id !== cardId))
-      setSelectedCard(null)
+      try {
+        await deleteCardDB(cardId)          // Supabase에서 삭제
+        setCards(prev => prev.filter(c => c.id !== cardId))
+        setSelectedCard(null)
+      } catch (err) {
+        console.error('삭제 실패:', err)
+        alert('삭제에 실패했습니다. 다시 시도해주세요.')
+      }
     }
   }, [cards])
 
@@ -97,35 +102,72 @@ export default function App() {
     }
   }
 
-  const handleSaveCard = (card: GalleryCard) => {
-    setCards(prev => {
-      const exists = prev.find(c => c.id === card.id)
-      if (exists) {
-        return prev.map(c => c.id === card.id ? card : c)
-      }
-      return [...prev, card]
-    })
-    setShowEditor(false)
-    setEditingCard(null)
-  }
-
-  const handleAddCategory = () => {
-    const trimmed = newCategory.trim()
-    if (trimmed && !categories.includes(trimmed)) {
-      setCategories(prev => [...prev, trimmed])
-      setNewCategory('')
+  // ── 카드 저장 (신규 등록 or 수정) → Supabase에 직접 저장 ──
+  const handleSaveCard = async (card: GalleryCard) => {
+    try {
+      await saveCardDB(card)                // Supabase에 저장
+      setCards(prev => {
+        const exists = prev.find(c => c.id === card.id)
+        if (exists) {
+          return prev.map(c => c.id === card.id ? card : c)
+        }
+        return [...prev, card]
+      })
+      setShowEditor(false)
+      setEditingCard(null)
+    } catch (err) {
+      console.error('저장 실패:', err)
+      alert('저장에 실패했습니다. 다시 시도해주세요.')
     }
   }
 
-  const handleRemoveCategory = (cat: string) => {
+  // ── 카테고리 추가 → Supabase에 직접 저장 ──
+  const handleAddCategory = async () => {
+    const trimmed = newCategory.trim()
+    if (trimmed && !categories.includes(trimmed)) {
+      try {
+        await addCategoryDB(trimmed)        // Supabase에 저장
+        setCategories(prev => [...prev, trimmed])
+        setNewCategory('')
+      } catch (err) {
+        console.error('카테고리 추가 실패:', err)
+        alert('카테고리 추가에 실패했습니다.')
+      }
+    }
+  }
+
+  // ── 카테고리 삭제 → Supabase에서 삭제 ──
+  const handleRemoveCategory = async (cat: string) => {
     if (DEFAULT_CATEGORIES.includes(cat)) return
-    setCategories(prev => prev.filter(c => c !== cat))
-    if (activeFilter === cat) setActiveFilter('전체')
+    try {
+      await removeCategoryDB(cat)           // Supabase에서 삭제
+      setCategories(prev => prev.filter(c => c !== cat))
+      if (activeFilter === cat) setActiveFilter('전체')
+    } catch (err) {
+      console.error('카테고리 삭제 실패:', err)
+      alert('카테고리 삭제에 실패했습니다.')
+    }
   }
 
   const handleLogout = () => {
     setIsAuthenticated(false)
     setShowCategoryEditor(false)
+  }
+
+  // ── 로딩 중 화면 ──
+  if (loading) {
+    return (
+      <div className="app" style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        fontSize: '1.2rem',
+        color: '#b89a6a',
+      }}>
+        ✦ 갤러리를 불러오는 중... ✦
+      </div>
+    )
   }
 
   return (
