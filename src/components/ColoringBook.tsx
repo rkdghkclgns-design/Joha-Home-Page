@@ -1,165 +1,322 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 interface Props {
   onClose: () => void
 }
 
-type BrushSize = 4 | 8 | 16 | 28
+type ToolType = 'pen' | 'marker' | 'crayon' | 'spray' | 'fill' | 'eraser'
 
 const PALETTE = [
-  '#FF0000', '#FF6B6B', '#FF8C00', '#FFD700',
-  '#32CD32', '#00CED1', '#1E90FF', '#6A5ACD',
-  '#FF69B4', '#8B4513', '#2F4F4F', '#000000',
-  '#FFFFFF', '#F5DEB3', '#FFC0CB', '#E6E6FA',
+  '#FF0000', '#FF4444', '#FF6B6B', '#FF8C00', '#FFA500', '#FFD700',
+  '#ADFF2F', '#32CD32', '#00A86B', '#00CED1', '#1E90FF', '#4169E1',
+  '#6A5ACD', '#9370DB', '#FF69B4', '#FF1493', '#8B4513', '#D2691E',
+  '#2F4F4F', '#000000', '#808080', '#C0C0C0', '#FFFFFF', '#F5DEB3',
 ]
 
+const TOOLS: { type: ToolType; icon: string; label: string }[] = [
+  { type: 'pen', icon: '✏️', label: '펜' },
+  { type: 'marker', icon: '🖊️', label: '마커' },
+  { type: 'crayon', icon: '🖍️', label: '크레파스' },
+  { type: 'spray', icon: '💨', label: '스프레이' },
+  { type: 'fill', icon: '🪣', label: '채우기' },
+  { type: 'eraser', icon: '🧹', label: '지우개' },
+]
+
+const SIZES = [3, 8, 16, 30, 48]
+
 export default function ColoringBook({ onClose }: Props) {
-  const [originalImage, setOriginalImage] = useState<string | null>(null)
-  const [outlineImage, setOutlineImage] = useState<string | null>(null)
+  const [originalSrc, setOriginalSrc] = useState<string | null>(null)
+  const [outlineSrc, setOutlineSrc] = useState<string | null>(null)
   const [brushColor, setBrushColor] = useState('#FF0000')
-  const [brushSize, setBrushSize] = useState<BrushSize>(8)
+  const [brushSize, setBrushSize] = useState(8)
+  const [tool, setTool] = useState<ToolType>('pen')
   const [isDrawing, setIsDrawing] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [showOriginal, setShowOriginal] = useState(false)
+  const [canvasReady, setCanvasReady] = useState(false)
 
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawCanvasRef = useRef<HTMLCanvasElement>(null)
   const outlineCanvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const lastPos = useRef<{ x: number; y: number } | null>(null)
+  const dims = useRef({ w: 0, h: 0 })
 
-  // 이미지 → 아웃라인(흑백 엣지) 변환
-  const convertToOutline = useCallback((img: HTMLImageElement) => {
-    const w = Math.min(img.naturalWidth, 800)
-    const h = Math.round((img.naturalHeight / img.naturalWidth) * w)
+  // ── 이미지 → 아웃라인 변환 (Sobel Edge Detection) ──
+  const generateOutline = useCallback((imgSrc: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const w = Math.min(img.naturalWidth, 800)
+        const h = Math.round((img.naturalHeight / img.naturalWidth) * w)
+        dims.current = { w, h }
 
-    // 아웃라인 레이어
-    const offscreen = document.createElement('canvas')
-    offscreen.width = w
-    offscreen.height = h
-    const octx = offscreen.getContext('2d')!
-    octx.drawImage(img, 0, 0, w, h)
+        const off = document.createElement('canvas')
+        off.width = w
+        off.height = h
+        const ctx = off.getContext('2d', { willReadFrequently: true })!
+        ctx.drawImage(img, 0, 0, w, h)
 
-    const imageData = octx.getImageData(0, 0, w, h)
-    const data = imageData.data
+        const imgData = ctx.getImageData(0, 0, w, h)
+        const px = imgData.data
 
-    // Sobel edge detection
-    const gray = new Float32Array(w * h)
-    for (let i = 0; i < w * h; i++) {
-      const r = data[i * 4]
-      const g = data[i * 4 + 1]
-      const b = data[i * 4 + 2]
-      gray[i] = 0.299 * r + 0.587 * g + 0.114 * b
-    }
+        // 1) grayscale + gaussian blur (3x3)
+        const gray = new Float32Array(w * h)
+        for (let i = 0; i < w * h; i++) {
+          gray[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]
+        }
 
-    const edges = new Float32Array(w * h)
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const idx = y * w + x
-        const gx =
-          -gray[(y - 1) * w + (x - 1)] + gray[(y - 1) * w + (x + 1)]
-          - 2 * gray[y * w + (x - 1)] + 2 * gray[y * w + (x + 1)]
-          - gray[(y + 1) * w + (x - 1)] + gray[(y + 1) * w + (x + 1)]
-        const gy =
-          -gray[(y - 1) * w + (x - 1)] - 2 * gray[(y - 1) * w + x] - gray[(y - 1) * w + (x + 1)]
-          + gray[(y + 1) * w + (x - 1)] + 2 * gray[(y + 1) * w + x] + gray[(y + 1) * w + (x + 1)]
-        edges[idx] = Math.sqrt(gx * gx + gy * gy)
+        // 간단 blur
+        const blurred = new Float32Array(w * h)
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            let sum = 0
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                sum += gray[(y + dy) * w + (x + dx)]
+              }
+            }
+            blurred[y * w + x] = sum / 9
+          }
+        }
+
+        // 2) Sobel
+        const edges = new Float32Array(w * h)
+        let maxEdge = 0
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x
+            const gx =
+              -blurred[(y-1)*w+(x-1)] + blurred[(y-1)*w+(x+1)]
+              -2*blurred[y*w+(x-1)] + 2*blurred[y*w+(x+1)]
+              -blurred[(y+1)*w+(x-1)] + blurred[(y+1)*w+(x+1)]
+            const gy =
+              -blurred[(y-1)*w+(x-1)] -2*blurred[(y-1)*w+x] -blurred[(y-1)*w+(x+1)]
+              +blurred[(y+1)*w+(x-1)] +2*blurred[(y+1)*w+x] +blurred[(y+1)*w+(x+1)]
+            edges[i] = Math.sqrt(gx*gx + gy*gy)
+            if (edges[i] > maxEdge) maxEdge = edges[i]
+          }
+        }
+
+        // 3) adaptive threshold → 흰 배경 + 검정 선
+        const threshold = maxEdge * 0.12
+        for (let i = 0; i < w * h; i++) {
+          const v = edges[i] > threshold ? 0 : 255
+          px[i*4] = v
+          px[i*4+1] = v
+          px[i*4+2] = v
+          px[i*4+3] = 255
+        }
+        ctx.putImageData(imgData, 0, 0)
+
+        resolve(off.toDataURL('image/png'))
       }
-    }
-
-    // 엣지를 흰 배경 + 검정 선으로 변환
-    const threshold = 30
-    for (let i = 0; i < w * h; i++) {
-      const v = edges[i] > threshold ? 0 : 255
-      data[i * 4] = v
-      data[i * 4 + 1] = v
-      data[i * 4 + 2] = v
-      data[i * 4 + 3] = 255
-    }
-    octx.putImageData(imageData, 0, 0)
-
-    // 아웃라인 이미지 저장
-    setOutlineImage(offscreen.toDataURL())
-
-    // 아웃라인 레이어 캔버스 세팅
-    const olCanvas = outlineCanvasRef.current
-    if (olCanvas) {
-      olCanvas.width = w
-      olCanvas.height = h
-      const olCtx = olCanvas.getContext('2d')!
-      olCtx.drawImage(offscreen, 0, 0)
-    }
-
-    // 그리기 캔버스 세팅 (투명)
-    const drawCanvas = canvasRef.current
-    if (drawCanvas) {
-      drawCanvas.width = w
-      drawCanvas.height = h
-      const dctx = drawCanvas.getContext('2d')!
-      dctx.clearRect(0, 0, w, h)
-    }
+      img.src = imgSrc
+    })
   }, [])
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── outlineSrc가 세팅된 뒤, 캔버스에 그리기 ──
+  useEffect(() => {
+    if (!outlineSrc) { setCanvasReady(false); return }
+
+    const img = new Image()
+    img.onload = () => {
+      const olc = outlineCanvasRef.current
+      const dc = drawCanvasRef.current
+      if (!olc || !dc) return
+
+      const { w, h } = dims.current
+      olc.width = w
+      olc.height = h
+      olc.getContext('2d')!.drawImage(img, 0, 0, w, h)
+
+      dc.width = w
+      dc.height = h
+      dc.getContext('2d')!.clearRect(0, 0, w, h)
+
+      setCanvasReady(true)
+    }
+    img.src = outlineSrc
+  }, [outlineSrc])
+
+  // ── 파일 업로드 ──
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     setProcessing(true)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const src = reader.result as string
-      setOriginalImage(src)
 
-      const img = new Image()
-      img.onload = () => {
-        convertToOutline(img)
-        setProcessing(false)
-      }
-      img.src = src
+    const reader = new FileReader()
+    reader.onload = async () => {
+      const src = reader.result as string
+      setOriginalSrc(src)
+      const outline = await generateOutline(src)
+      setOutlineSrc(outline)
+      setProcessing(false)
     }
     reader.readAsDataURL(file)
   }
 
-  // 그리기 핸들러
-  const getPos = (e: React.MouseEvent | React.TouchEvent): { x: number; y: number } => {
-    const canvas = canvasRef.current!
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-
+  // ── 좌표 계산 ──
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const c = drawCanvasRef.current!
+    const r = c.getBoundingClientRect()
+    const sx = c.width / r.width
+    const sy = c.height / r.height
     if ('touches' in e) {
-      const touch = e.touches[0]
-      return {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
-      }
+      const t = e.touches[0]
+      return { x: (t.clientX - r.left) * sx, y: (t.clientY - r.top) * sy }
     }
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    }
+    return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy }
   }
 
+  // ── 스프레이 효과 ──
+  const sprayAt = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+    const density = Math.floor(size * 2)
+    for (let i = 0; i < density; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const radius = Math.random() * size
+      const sx = x + Math.cos(angle) * radius
+      const sy = y + Math.sin(angle) * radius
+      ctx.fillStyle = brushColor
+      ctx.globalAlpha = 0.3 + Math.random() * 0.4
+      ctx.fillRect(sx, sy, 1, 1)
+    }
+    ctx.globalAlpha = 1
+  }
+
+  // ── 크레파스 효과 ──
+  const crayonStroke = (ctx: CanvasRenderingContext2D, from: {x:number;y:number}, to: {x:number;y:number}, size: number) => {
+    const steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) / 2
+    for (let i = 0; i <= steps; i++) {
+      const t = steps === 0 ? 0 : i / steps
+      const cx = from.x + (to.x - from.x) * t + (Math.random() - 0.5) * 2
+      const cy = from.y + (to.y - from.y) * t + (Math.random() - 0.5) * 2
+      ctx.globalAlpha = 0.15 + Math.random() * 0.25
+      ctx.fillStyle = brushColor
+      ctx.beginPath()
+      ctx.arc(cx, cy, size / 2 * (0.6 + Math.random() * 0.4), 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.globalAlpha = 1
+  }
+
+  // ── 채우기 (flood fill) ──
+  const floodFill = (startX: number, startY: number) => {
+    const canvas = drawCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    const { width: w, height: h } = canvas
+    const imgData = ctx.getImageData(0, 0, w, h)
+    const data = imgData.data
+
+    const sx = Math.round(startX)
+    const sy = Math.round(startY)
+    const startIdx = (sy * w + sx) * 4
+    const startR = data[startIdx], startG = data[startIdx+1], startB = data[startIdx+2], startA = data[startIdx+3]
+
+    // parse fill color
+    const fillR = parseInt(brushColor.slice(1,3), 16)
+    const fillG = parseInt(brushColor.slice(3,5), 16)
+    const fillB = parseInt(brushColor.slice(5,7), 16)
+
+    if (startR === fillR && startG === fillG && startB === fillB && startA === 255) return
+
+    const tolerance = 40
+    const match = (i: number) => {
+      return Math.abs(data[i] - startR) <= tolerance &&
+             Math.abs(data[i+1] - startG) <= tolerance &&
+             Math.abs(data[i+2] - startB) <= tolerance &&
+             Math.abs(data[i+3] - startA) <= tolerance
+    }
+
+    const stack = [[sx, sy]]
+    const visited = new Uint8Array(w * h)
+
+    while (stack.length > 0) {
+      const [cx, cy] = stack.pop()!
+      const pi = cy * w + cx
+      if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue
+      if (visited[pi]) continue
+      const idx = pi * 4
+      if (!match(idx)) continue
+
+      visited[pi] = 1
+      data[idx] = fillR
+      data[idx+1] = fillG
+      data[idx+2] = fillB
+      data[idx+3] = 255
+
+      stack.push([cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1])
+    }
+
+    ctx.putImageData(imgData, 0, 0)
+  }
+
+  // ── 드로잉 핸들러 ──
   const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault()
+    const pos = getPos(e)
+
+    if (tool === 'fill') {
+      floodFill(pos.x, pos.y)
+      return
+    }
+
     setIsDrawing(true)
-    lastPos.current = getPos(e)
+    lastPos.current = pos
+
+    // 단일 점 찍기
+    const ctx = drawCanvasRef.current?.getContext('2d')
+    if (!ctx) return
+    if (tool === 'spray') {
+      sprayAt(ctx, pos.x, pos.y, brushSize)
+    }
   }
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return
+    if (!isDrawing || tool === 'fill') return
     e.preventDefault()
-    const ctx = canvasRef.current?.getContext('2d')
+    const ctx = drawCanvasRef.current?.getContext('2d')
     if (!ctx || !lastPos.current) return
-
     const pos = getPos(e)
-    ctx.strokeStyle = brushColor
-    ctx.lineWidth = brushSize
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    ctx.moveTo(lastPos.current.x, lastPos.current.y)
-    ctx.lineTo(pos.x, pos.y)
-    ctx.stroke()
+
+    if (tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = 'rgba(0,0,0,1)'
+      ctx.lineWidth = brushSize
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(lastPos.current.x, lastPos.current.y)
+      ctx.lineTo(pos.x, pos.y)
+      ctx.stroke()
+      ctx.globalCompositeOperation = 'source-over'
+    } else if (tool === 'pen') {
+      ctx.strokeStyle = brushColor
+      ctx.lineWidth = brushSize
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.globalAlpha = 1
+      ctx.beginPath()
+      ctx.moveTo(lastPos.current.x, lastPos.current.y)
+      ctx.lineTo(pos.x, pos.y)
+      ctx.stroke()
+    } else if (tool === 'marker') {
+      ctx.strokeStyle = brushColor
+      ctx.lineWidth = brushSize * 1.8
+      ctx.lineCap = 'square'
+      ctx.lineJoin = 'miter'
+      ctx.globalAlpha = 0.45
+      ctx.beginPath()
+      ctx.moveTo(lastPos.current.x, lastPos.current.y)
+      ctx.lineTo(pos.x, pos.y)
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    } else if (tool === 'crayon') {
+      crayonStroke(ctx, lastPos.current, pos, brushSize)
+    } else if (tool === 'spray') {
+      sprayAt(ctx, pos.x, pos.y, brushSize)
+    }
+
     lastPos.current = pos
   }
 
@@ -168,49 +325,48 @@ export default function ColoringBook({ onClose }: Props) {
     lastPos.current = null
   }
 
-  // 전체 지우기
   const clearCanvas = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const c = drawCanvasRef.current
+    if (!c) return
+    c.getContext('2d')!.clearRect(0, 0, c.width, c.height)
   }
 
-  // 다운로드 (아웃라인 + 컬러 합성)
   const handleDownload = () => {
-    const outCanvas = outlineCanvasRef.current
-    const drawCanvas = canvasRef.current
-    if (!outCanvas || !drawCanvas) return
-
+    const olc = outlineCanvasRef.current
+    const dc = drawCanvasRef.current
+    if (!olc || !dc) return
     const merged = document.createElement('canvas')
-    merged.width = outCanvas.width
-    merged.height = outCanvas.height
+    merged.width = olc.width
+    merged.height = olc.height
     const ctx = merged.getContext('2d')!
-
-    // 흰 배경
     ctx.fillStyle = '#FFFFFF'
     ctx.fillRect(0, 0, merged.width, merged.height)
-    // 컬러링 레이어
-    ctx.drawImage(drawCanvas, 0, 0)
-    // 아웃라인 레이어 (multiply 효과)
+    ctx.drawImage(dc, 0, 0)
     ctx.globalCompositeOperation = 'multiply'
-    ctx.drawImage(outCanvas, 0, 0)
+    ctx.drawImage(olc, 0, 0)
     ctx.globalCompositeOperation = 'source-over'
-
-    const link = document.createElement('a')
-    link.download = 'juha-coloring-book.png'
-    link.href = merged.toDataURL('image/png')
-    link.click()
+    const a = document.createElement('a')
+    a.download = 'juha-coloring-book.png'
+    a.href = merged.toDataURL('image/png')
+    a.click()
   }
 
   // 터치 스크롤 방지
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const c = drawCanvasRef.current
+    if (!c) return
     const prevent = (e: TouchEvent) => { if (isDrawing) e.preventDefault() }
-    canvas.addEventListener('touchmove', prevent, { passive: false })
-    return () => canvas.removeEventListener('touchmove', prevent)
-  }, [isDrawing])
+    c.addEventListener('touchmove', prevent, { passive: false })
+    return () => c.removeEventListener('touchmove', prevent)
+  }, [isDrawing, canvasReady])
+
+  const resetAll = () => {
+    setOutlineSrc(null)
+    setOriginalSrc(null)
+    setShowOriginal(false)
+    setCanvasReady(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   return (
     <div className="modal-backdrop z-editor" onClick={onClose}>
@@ -219,7 +375,8 @@ export default function ColoringBook({ onClose }: Props) {
         <h2 className="modal-title">🎨 컬러링북</h2>
         <p className="modal-desc">사진을 올리면 색칠할 수 있는 도안이 만들어집니다!</p>
 
-        {!outlineImage ? (
+        {!outlineSrc ? (
+          /* ── 업로드 화면 ── */
           <div className="coloring-upload">
             <div
               className="file-upload-area"
@@ -230,7 +387,7 @@ export default function ColoringBook({ onClose }: Props) {
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-                onChange={handleFileUpload}
+                onChange={handleFile}
                 className="file-input-hidden"
               />
               <div className="file-upload-content">
@@ -238,57 +395,87 @@ export default function ColoringBook({ onClose }: Props) {
                 <span className="file-upload-text">
                   {processing ? '도안을 만드는 중...' : '사진을 선택하세요'}
                 </span>
-                <span className="file-upload-hint">jpg, png 이미지 파일</span>
+                <span className="file-upload-hint">jpg, png 이미지</span>
               </div>
             </div>
           </div>
         ) : (
+          /* ── 작업 화면 ── */
           <div className="coloring-workspace">
             {/* 도구 바 */}
             <div className="coloring-toolbar">
-              <div className="palette-grid">
-                {PALETTE.map(color => (
+              {/* 펜 종류 선택 */}
+              <div className="tool-row">
+                {TOOLS.map(t => (
                   <button
-                    key={color}
-                    className={`palette-swatch ${brushColor === color ? 'active' : ''}`}
-                    style={{ background: color }}
-                    onClick={() => setBrushColor(color)}
-                    title={color}
-                  />
+                    key={t.type}
+                    className={`tool-btn ${tool === t.type ? 'active' : ''}`}
+                    onClick={() => setTool(t.type)}
+                    title={t.label}
+                  >
+                    <span className="tool-icon">{t.icon}</span>
+                    <span className="tool-label">{t.label}</span>
+                  </button>
                 ))}
               </div>
+
+              {/* 색상 팔레트 */}
+              {tool !== 'eraser' && (
+                <div className="palette-grid">
+                  {PALETTE.map(color => (
+                    <button
+                      key={color}
+                      className={`palette-swatch ${brushColor === color ? 'active' : ''}`}
+                      style={{ background: color }}
+                      onClick={() => setBrushColor(color)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* 브러시 크기 */}
               <div className="brush-sizes">
-                {([4, 8, 16, 28] as BrushSize[]).map(s => (
+                <span className="brush-label">크기</span>
+                {SIZES.map(s => (
                   <button
                     key={s}
                     className={`brush-size-btn ${brushSize === s ? 'active' : ''}`}
                     onClick={() => setBrushSize(s)}
                   >
-                    <span className="brush-dot" style={{ width: s, height: s }} />
+                    <span
+                      className="brush-dot"
+                      style={{ width: Math.min(s, 20), height: Math.min(s, 20) }}
+                    />
                   </button>
                 ))}
               </div>
+
+              {/* 액션 버튼 */}
               <div className="coloring-actions-row">
-                <button className="btn-secondary btn-sm" onClick={clearCanvas}>지우기</button>
+                <button className="btn-secondary btn-sm" onClick={clearCanvas}>
+                  🗑️ 전체 지우기
+                </button>
                 <button
                   className="btn-secondary btn-sm"
-                  onClick={() => setShowOriginal(prev => !prev)}
+                  onClick={() => setShowOriginal(p => !p)}
                 >
-                  {showOriginal ? '도안 보기' : '원본 보기'}
+                  {showOriginal ? '🎨 도안 보기' : '🖼️ 원본 보기'}
                 </button>
-                <button className="btn-primary btn-sm" onClick={handleDownload}>💾 다운로드</button>
+                <button className="btn-primary btn-sm" onClick={handleDownload}>
+                  💾 다운로드
+                </button>
               </div>
             </div>
 
             {/* 캔버스 영역 */}
             <div className="coloring-canvas-area">
-              {showOriginal && originalImage ? (
-                <img src={originalImage} alt="원본" className="coloring-original-preview" />
+              {showOriginal && originalSrc ? (
+                <img src={originalSrc} alt="원본" className="coloring-original-preview" />
               ) : (
                 <div className="coloring-canvas-wrap">
                   <canvas ref={outlineCanvasRef} className="coloring-outline-layer" />
                   <canvas
-                    ref={canvasRef}
+                    ref={drawCanvasRef}
                     className="coloring-draw-layer"
                     onMouseDown={startDraw}
                     onMouseMove={draw}
@@ -302,16 +489,7 @@ export default function ColoringBook({ onClose }: Props) {
               )}
             </div>
 
-            {/* 새 이미지 */}
-            <button
-              className="btn-secondary"
-              style={{ marginTop: '0.75rem', width: '100%' }}
-              onClick={() => {
-                setOutlineImage(null)
-                setOriginalImage(null)
-                setShowOriginal(false)
-              }}
-            >
+            <button className="btn-secondary" style={{ marginTop: '0.5rem', width: '100%' }} onClick={resetAll}>
               다른 사진으로 바꾸기
             </button>
           </div>
