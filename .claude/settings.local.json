@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:5174/Joha-Home-Page/)",
+      "Bash(mkdir -p public/mascots)",
+      "Bash(cp KakaoTalk_20260408_181007319.png public/mascots/love.png)",
+      "Bash(cp KakaoTalk_20260408_181007319_01.png public/mascots/hungry.png)",
+      "Bash(cp KakaoTalk_20260408_181007319_02.png public/mascots/sleepy.png)",
+      "Bash(cp KakaoTalk_20260408_181007319_03.png public/mascots/please.png)",
+      "Bash(npx vite:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174/Joha-Home-Page/)",
+      "Bash(where gh:*)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Read(//c/Program Files \\(x86\\)/GitHub CLI/**)",
+      "Read(//c/Users/KGA-유치훈/OneDrive/바탕 화면/유치훈/딸각 스튜디오/Joha-Home-Page/$LOCALAPPDATA/Programs/GitHub CLI/**)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/rkdghkclgns-design/Joha-Home-Page/pages -X POST -f build_type=workflow)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/rkdghkclgns-design/Joha-Home-Page/pages -X PUT -f build_type=workflow)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/rkdghkclgns-design/Joha-Home-Page/pages)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --repo rkdghkclgns-design/Joha-Home-Page --limit 3)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 24157811112 --repo rkdghkclgns-design/Joha-Home-Page --log-failed)",
+      "Bash(npx tsc:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5175/Joha-Home-Page/)"
+    ]
+  }
+}

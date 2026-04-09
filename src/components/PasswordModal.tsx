@@ -30,7 +30,7 @@ export default function PasswordModal({ onSuccess, onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop z-password" onClick={onClose}>
       <div
         className={`modal password-modal ${shake ? 'shake' : ''}`}
         onClick={e => e.stopPropagation()}

@@ -1,30 +1,58 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { GalleryCard } from '../types'
 
 interface Props {
   card: GalleryCard | null
+  categories: string[]
   onSave: (card: GalleryCard) => void
   onClose: () => void
 }
 
-const CATEGORIES = ['풍경', '자연', '일상', '공간', '예술', '기타']
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
-export default function CardEditor({ card, onSave, onClose }: Props) {
+function detectMediaType(url: string): 'image' | 'video' {
+  const lower = url.toLowerCase()
+  if (lower.startsWith('data:video/') || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(lower)) {
+    return 'video'
+  }
+  return 'image'
+}
+
+export default function CardEditor({ card, categories, onSave, onClose }: Props) {
   const isNew = card === null
   const [title, setTitle] = useState(card?.title ?? '')
   const [description, setDescription] = useState(card?.description ?? '')
-  const [imageUrl, setImageUrl] = useState(card?.imageUrl ?? '')
-  const [category, setCategory] = useState(card?.category ?? CATEGORIES[0])
+  const [mediaUrl, setMediaUrl] = useState(card?.mediaUrl ?? '')
+  const [mediaType, setMediaType] = useState<'image' | 'video'>(card?.mediaType ?? 'image')
+  const [category, setCategory] = useState(card?.category ?? categories[0])
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const dataUrl = await fileToDataUrl(file)
+    setMediaUrl(dataUrl)
+    setMediaType(file.type.startsWith('video/') ? 'video' : 'image')
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !imageUrl.trim()) return
+    if (!title.trim() || !mediaUrl.trim()) return
 
     const saved: GalleryCard = {
       id: card?.id ?? crypto.randomUUID(),
       title: title.trim(),
       description: description.trim(),
-      imageUrl: imageUrl.trim(),
+      mediaUrl: mediaUrl.trim(),
+      mediaType: detectMediaType(mediaUrl) === 'video' ? 'video' : mediaType,
       category,
       createdAt: card?.createdAt ?? new Date().toISOString().slice(0, 10),
     }
@@ -32,7 +60,7 @@ export default function CardEditor({ card, onSave, onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop z-editor" onClick={onClose}>
       <div className="modal editor-modal" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>&times;</button>
         <h2 className="modal-title">{isNew ? '새 작품 등록' : '작품 수정'}</h2>
@@ -56,29 +84,55 @@ export default function CardEditor({ card, onSave, onClose }: Props) {
               rows={3}
             />
           </label>
-          <label className="form-label">
-            이미지 URL
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={e => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-              required
-            />
-          </label>
+
+          {/* File attachment */}
+          <div className="form-label">
+            미디어 파일
+            <div className="file-upload-area" onClick={() => fileRef.current?.click()}>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileChange}
+                className="file-input-hidden"
+              />
+              <div className="file-upload-content">
+                <span className="file-upload-icon">📁</span>
+                <span className="file-upload-text">
+                  이미지 또는 동영상을 첨부하세요
+                </span>
+                <span className="file-upload-hint">
+                  클릭하여 파일 선택 (jpg, png, mp4, webm)
+                </span>
+              </div>
+            </div>
+          </div>
+
           <label className="form-label">
             카테고리
             <select value={category} onChange={e => setCategory(e.target.value)}>
-              {CATEGORIES.map(c => (
+              {categories.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </label>
-          {imageUrl && (
-            <div className="preview-image">
-              <img src={imageUrl} alt="미리보기" onError={e => (e.currentTarget.style.display = 'none')} />
+
+          {/* Preview */}
+          {mediaUrl && (
+            <div className="preview-media">
+              {mediaType === 'video' ? (
+                <video src={mediaUrl} controls autoPlay muted playsInline className="preview-video" />
+              ) : (
+                <img
+                  src={mediaUrl}
+                  alt="미리보기"
+                  className="preview-img"
+                  onError={e => (e.currentTarget.style.display = 'none')}
+                />
+              )}
             </div>
           )}
+
           <div className="editor-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>
               취소

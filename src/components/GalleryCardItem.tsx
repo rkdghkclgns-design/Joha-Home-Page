@@ -7,6 +7,8 @@ interface Props {
 }
 
 export default function GalleryCardItem({ card, index, onClick }: Props) {
+  const isVideo = card.mediaType === 'video'
+
   return (
     <article
       className="card"
@@ -15,13 +17,25 @@ export default function GalleryCardItem({ card, index, onClick }: Props) {
     >
       <div className="card-frame">
         <div className="card-image-wrap">
-          <img
-            src={card.imageUrl}
-            alt={card.title}
-            className="card-image"
-            loading="lazy"
-          />
+          {isVideo ? (
+            <video
+              src={card.mediaUrl}
+              className="card-image"
+              muted
+              loop
+              autoPlay
+              playsInline
+            />
+          ) : (
+            <img
+              src={card.mediaUrl}
+              alt={card.title}
+              className="card-image"
+              loading="lazy"
+            />
+          )}
           <div className="card-overlay" />
+          {isVideo && <span className="card-video-badge">▶ 영상</span>}
         </div>
       </div>
       <div className="card-info">

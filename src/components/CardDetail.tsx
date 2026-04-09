@@ -9,12 +9,24 @@ interface Props {
 }
 
 export default function CardDetail({ card, isAuthenticated, onEdit, onDelete, onClose }: Props) {
+  const isVideo = card.mediaType === 'video'
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop z-detail" onClick={onClose}>
       <div className="modal detail-modal" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>&times;</button>
         <div className="detail-image-wrap">
-          <img src={card.imageUrl} alt={card.title} className="detail-image" />
+          {isVideo ? (
+            <video
+              src={card.mediaUrl}
+              className="detail-image"
+              controls
+              autoPlay
+              playsInline
+            />
+          ) : (
+            <img src={card.mediaUrl} alt={card.title} className="detail-image" />
+          )}
         </div>
         <div className="detail-content">
           <span className="card-category">{card.category}</span>

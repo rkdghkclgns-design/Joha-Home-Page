@@ -5,4 +5,5 @@ dist
 .env
 .env.*
 KakaoTalk_*.png
+KakaoTalk_*.mp4
 tsconfig.tsbuildinfo
