@@ -567,6 +567,94 @@
   overflow: hidden;
 }
 
+/* ─── Card Heart Button ─── */
+.card-heart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 100px;
+  background: rgba(196, 162, 101, 0.06);
+  border: 1px solid rgba(196, 162, 101, 0.15);
+  font-size: 0.8rem;
+  color: var(--color-warm-gray);
+  transition: all 0.3s ease;
+}
+.card-heart-btn:hover {
+  background: rgba(255, 100, 130, 0.08);
+  border-color: rgba(255, 100, 130, 0.3);
+}
+.card-heart-btn.liked {
+  background: rgba(255, 100, 130, 0.1);
+  border-color: rgba(255, 100, 130, 0.3);
+  color: #FF6482;
+}
+.card-heart-btn.liked .heart-icon {
+  animation: heartPop 0.4s ease;
+}
+.heart-icon {
+  font-size: 1rem;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.card-heart-btn:hover .heart-icon {
+  transform: scale(1.2);
+}
+.heart-count {
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.5); }
+  50% { transform: scale(0.9); }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* ─── Detail Heart Button ─── */
+.detail-heart-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 100px;
+  background: rgba(196, 162, 101, 0.06);
+  border: 1px solid rgba(196, 162, 101, 0.2);
+  color: var(--color-warm-gray);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+.detail-heart-btn:hover {
+  background: rgba(255, 100, 130, 0.08);
+  border-color: rgba(255, 100, 130, 0.3);
+  transform: scale(1.03);
+}
+.detail-heart-btn.liked {
+  background: rgba(255, 100, 130, 0.12);
+  border-color: rgba(255, 100, 130, 0.35);
+  color: #FF6482;
+}
+.detail-heart-btn.liked .detail-heart-icon {
+  animation: heartPop 0.4s ease;
+}
+.detail-heart-icon {
+  font-size: 1.3rem;
+  display: inline-block;
+}
+.detail-heart-text {
+  font-weight: 500;
+}
+.detail-heart-count {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding-left: 0.3rem;
+  border-left: 1px solid rgba(168, 155, 140, 0.2);
+}
+
 /* ─── Easter Egg ─── */
 .easter-egg {
   position: fixed;

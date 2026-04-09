@@ -13,6 +13,7 @@ export const defaultCards: GalleryCard[] = [
     mediaType: 'image',
     category: '풍경',
     createdAt: '2026-01-15',
+    likes: 0,
   },
   {
     id: '2',
@@ -22,6 +23,7 @@ export const defaultCards: GalleryCard[] = [
     mediaType: 'image',
     category: '자연',
     createdAt: '2026-02-10',
+    likes: 0,
   },
   {
     id: '3',
@@ -31,6 +33,7 @@ export const defaultCards: GalleryCard[] = [
     mediaType: 'image',
     category: '풍경',
     createdAt: '2026-02-20',
+    likes: 0,
   },
   {
     id: '4',
@@ -40,6 +43,7 @@ export const defaultCards: GalleryCard[] = [
     mediaType: 'image',
     category: '일상',
     createdAt: '2026-03-05',
+    likes: 0,
   },
   {
     id: '5',
@@ -49,6 +53,7 @@ export const defaultCards: GalleryCard[] = [
     mediaType: 'image',
     category: '공간',
     createdAt: '2026-03-18',
+    likes: 0,
   },
   {
     id: '6',
@@ -58,5 +63,6 @@ export const defaultCards: GalleryCard[] = [
     mediaType: 'image',
     category: '풍경',
     createdAt: '2026-04-01',
+    likes: 0,
   },
 ]

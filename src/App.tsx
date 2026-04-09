@@ -8,6 +8,8 @@ import {
   loadCategoriesDB,
   addCategoryDB,
   removeCategoryDB,
+  incrementLikeDB,
+  decrementLikeDB,
 } from './storage'
 import GalleryCardItem from './components/GalleryCardItem'
 import PasswordModal from './components/PasswordModal'
@@ -36,6 +38,12 @@ export default function App() {
   const [showCategoryEditor, setShowCategoryEditor] = useState(false)
   const [newCategory, setNewCategory] = useState('')
   const [loading, setLoading] = useState(true)
+  const [likedCards, setLikedCards] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('juha-liked-cards')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch { return new Set() }
+  })
   const isInitRef = useRef(false)
 
   // ── 앱 시작 시 Supabase에서 데이터 로드 ──
@@ -154,6 +162,38 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false)
     setShowCategoryEditor(false)
+  }
+
+  // ── 좋아요 토글 ──
+  const handleLike = async (cardId: string) => {
+    const isLiked = likedCards.has(cardId)
+    try {
+      if (isLiked) {
+        await decrementLikeDB(cardId)
+        setLikedCards(prev => {
+          const next = new Set(prev)
+          next.delete(cardId)
+          localStorage.setItem('juha-liked-cards', JSON.stringify([...next]))
+          return next
+        })
+        setCards(prev => prev.map(c => c.id === cardId ? { ...c, likes: Math.max(0, c.likes - 1) } : c))
+      } else {
+        await incrementLikeDB(cardId)
+        setLikedCards(prev => {
+          const next = new Set(prev)
+          next.add(cardId)
+          localStorage.setItem('juha-liked-cards', JSON.stringify([...next]))
+          return next
+        })
+        setCards(prev => prev.map(c => c.id === cardId ? { ...c, likes: c.likes + 1 } : c))
+      }
+      // selectedCard가 열려있으면 같이 업데이트
+      if (selectedCard?.id === cardId) {
+        setSelectedCard(prev => prev ? { ...prev, likes: isLiked ? Math.max(0, prev.likes - 1) : prev.likes + 1 } : prev)
+      }
+    } catch (err) {
+      console.error('좋아요 처리 실패:', err)
+    }
   }
 
   if (loading) {
@@ -283,7 +323,12 @@ export default function App() {
               key={card.id}
               card={card}
               index={index}
+              liked={likedCards.has(card.id)}
               onClick={() => setSelectedCard(card)}
+              onLike={(e: React.MouseEvent) => {
+                e.stopPropagation()
+                handleLike(card.id)
+              }}
             />
           ))}
         </div>
@@ -309,8 +354,10 @@ export default function App() {
         <CardDetail
           card={selectedCard}
           isAuthenticated={isAuthenticated}
+          liked={likedCards.has(selectedCard.id)}
           onEdit={(id) => requireAuth('edit', id)}
           onDelete={(id) => requireAuth('delete', id)}
+          onLike={() => handleLike(selectedCard.id)}
           onClose={() => setSelectedCard(null)}
         />
       )}

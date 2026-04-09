@@ -3,12 +3,14 @@ import { GalleryCard } from '../types'
 interface Props {
   card: GalleryCard
   isAuthenticated: boolean
+  liked: boolean
   onEdit: (id: string) => void
   onDelete: (id: string) => void
+  onLike: () => void
   onClose: () => void
 }
 
-export default function CardDetail({ card, isAuthenticated, onEdit, onDelete, onClose }: Props) {
+export default function CardDetail({ card, isAuthenticated, liked, onEdit, onDelete, onLike, onClose }: Props) {
   const isVideo = card.mediaType === 'video'
 
   return (
@@ -33,6 +35,19 @@ export default function CardDetail({ card, isAuthenticated, onEdit, onDelete, on
           <h2 className="detail-title">{card.title}</h2>
           <p className="detail-desc">{card.description}</p>
           <p className="detail-date">{card.createdAt}</p>
+
+          {/* 하트 좋아요 버튼 */}
+          <button
+            className={`detail-heart-btn ${liked ? 'liked' : ''}`}
+            onClick={onLike}
+          >
+            <span className="detail-heart-icon">{liked ? '❤️' : '🤍'}</span>
+            <span className="detail-heart-text">
+              {liked ? '좋아요 취소' : '좋아요'}
+            </span>
+            <span className="detail-heart-count">{card.likes}</span>
+          </button>
+
           {isAuthenticated && (
             <div className="detail-actions">
               <button className="btn-secondary" onClick={() => onEdit(card.id)}>

@@ -57,6 +57,7 @@ export default function CardEditor({ card, categories, onSave, onClose }: Props)
       mediaType: detectMediaType(mediaUrl) === 'video' ? 'video' : mediaType,
       category,
       createdAt: card?.createdAt ?? new Date().toISOString().slice(0, 10),
+      likes: card?.likes ?? 0,
     }
     onSave(saved)
   }

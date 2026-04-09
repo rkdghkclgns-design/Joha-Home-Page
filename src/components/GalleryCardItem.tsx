@@ -3,10 +3,12 @@ import { GalleryCard } from '../types'
 interface Props {
   card: GalleryCard
   index: number
+  liked: boolean
   onClick: () => void
+  onLike: (e: React.MouseEvent) => void
 }
 
-export default function GalleryCardItem({ card, index, onClick }: Props) {
+export default function GalleryCardItem({ card, index, liked, onClick, onLike }: Props) {
   const isVideo = card.mediaType === 'video'
 
   return (
@@ -42,6 +44,14 @@ export default function GalleryCardItem({ card, index, onClick }: Props) {
         <span className="card-category">{card.category}</span>
         <h3 className="card-title">{card.title}</h3>
         <p className="card-desc">{card.description}</p>
+        <button
+          className={`card-heart-btn ${liked ? 'liked' : ''}`}
+          onClick={onLike}
+          aria-label="좋아요"
+        >
+          <span className="heart-icon">{liked ? '❤️' : '🤍'}</span>
+          <span className="heart-count">{card.likes}</span>
+        </button>
       </div>
     </article>
   )

@@ -18,6 +18,7 @@ interface CardRow {
   media_type: string
   category: string
   created_at: string
+  likes: number
 }
 
 function rowToCard(row: CardRow): GalleryCard {
@@ -29,10 +30,11 @@ function rowToCard(row: CardRow): GalleryCard {
     mediaType: row.media_type as 'image' | 'video',
     category: row.category,
     createdAt: row.created_at,
+    likes: row.likes ?? 0,
   }
 }
 
-function cardToRow(card: GalleryCard): CardRow {
+function cardToRow(card: GalleryCard): Omit<CardRow, 'likes'> {
   return {
     id: card.id,
     title: card.title,
@@ -124,6 +126,26 @@ export async function removeCategoryDB(name: string): Promise<void> {
 
   if (error) {
     console.error('카테고리 삭제 실패:', error.message)
+    throw error
+  }
+}
+
+// ── 좋아요(하트) ────────────────────────────────────────
+
+/** 좋아요 증가 (Supabase RPC) */
+export async function incrementLikeDB(cardId: string): Promise<void> {
+  const { error } = await supabase.rpc('increment_likes', { card_id: cardId })
+  if (error) {
+    console.error('좋아요 증가 실패:', error.message)
+    throw error
+  }
+}
+
+/** 좋아요 감소 (Supabase RPC) */
+export async function decrementLikeDB(cardId: string): Promise<void> {
+  const { error } = await supabase.rpc('decrement_likes', { card_id: cardId })
+  if (error) {
+    console.error('좋아요 감소 실패:', error.message)
     throw error
   }
 }

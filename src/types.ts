@@ -6,6 +6,7 @@ export interface GalleryCard {
   mediaType: 'image' | 'video'
   category: string
   createdAt: string
+  likes: number
 }
 
 export interface GalleryState {
