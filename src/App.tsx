@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { GalleryCard } from './types'
 import { defaultCards, DEFAULT_CATEGORIES } from './defaultData'
+import { saveCardsDB, loadCardsDB, saveCategoriesDB, loadCategoriesDB, migrateFromLocalStorage } from './storage'
 import GalleryCardItem from './components/GalleryCardItem'
 import PasswordModal from './components/PasswordModal'
 import CardEditor from './components/CardEditor'
@@ -9,36 +10,9 @@ import FloatingMascots from './components/FloatingMascots'
 import HeroSection from './components/HeroSection'
 import './App.css'
 
-const CARDS_KEY = 'joha-gallery-cards'
-const CATS_KEY = 'joha-gallery-categories'
-
-function loadCards(): GalleryCard[] {
-  try {
-    const stored = localStorage.getItem(CARDS_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch { /* ignore */ }
-  return defaultCards
-}
-
-function loadCategories(): string[] {
-  try {
-    const stored = localStorage.getItem(CATS_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch { /* ignore */ }
-  return DEFAULT_CATEGORIES
-}
-
-function saveCards(cards: GalleryCard[]): void {
-  localStorage.setItem(CARDS_KEY, JSON.stringify(cards))
-}
-
-function saveCategories(cats: string[]): void {
-  localStorage.setItem(CATS_KEY, JSON.stringify(cats))
-}
-
 export default function App() {
-  const [cards, setCards] = useState<GalleryCard[]>(loadCards)
-  const [categories, setCategories] = useState<string[]>(loadCategories)
+  const [cards, setCards] = useState<GalleryCard[]>(defaultCards)
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
@@ -49,9 +23,37 @@ export default function App() {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null)
   const [showCategoryEditor, setShowCategoryEditor] = useState(false)
   const [newCategory, setNewCategory] = useState('')
+  const isInitRef = useRef(false)
 
-  useEffect(() => { saveCards(cards) }, [cards])
-  useEffect(() => { saveCategories(categories) }, [categories])
+  // ── 앱 시작 시 IndexedDB에서 데이터 로드 (+ localStorage 마이그레이션) ──
+  useEffect(() => {
+    async function init() {
+      // 1) 기존 localStorage 데이터가 있으면 IndexedDB로 옮기기
+      const migrated = await migrateFromLocalStorage()
+
+      // 2) IndexedDB에서 불러오기
+      const dbCards = migrated.cards ?? await loadCardsDB()
+      const dbCats = migrated.categories ?? await loadCategoriesDB()
+
+      if (dbCards && dbCards.length > 0) setCards(dbCards)
+      if (dbCats && dbCats.length > 0) setCategories(dbCats)
+
+      isInitRef.current = true
+    }
+    init()
+  }, [])
+
+  // ── 카드가 변경될 때마다 IndexedDB에 저장 ──
+  useEffect(() => {
+    if (!isInitRef.current) return
+    saveCardsDB(cards).catch(console.error)
+  }, [cards])
+
+  // ── 카테고리가 변경될 때마다 IndexedDB에 저장 ──
+  useEffect(() => {
+    if (!isInitRef.current) return
+    saveCategoriesDB(categories).catch(console.error)
+  }, [categories])
 
   const allCategories = ['전체', ...categories]
 
