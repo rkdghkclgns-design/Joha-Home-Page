@@ -7,7 +7,7 @@
  */
 
 import { supabase } from './supabaseClient'
-import { GalleryCard } from './types'
+import { GalleryCard, MediaItem } from './types'
 
 // ── DB row ↔ GalleryCard 변환 유틸 ──────────────────────
 interface CardRow {
@@ -16,18 +16,25 @@ interface CardRow {
   description: string
   media_url: string
   media_type: string
+  media_items: MediaItem[] | null
   category: string
   created_at: string
   likes: number
 }
 
 function rowToCard(row: CardRow): GalleryCard {
+  // media_items가 없으면 기존 단일 미디어로 폴백
+  const items: MediaItem[] = Array.isArray(row.media_items) && row.media_items.length > 0
+    ? row.media_items
+    : [{ url: row.media_url, type: row.media_type as 'image' | 'video' }]
+
   return {
     id: row.id,
     title: row.title,
     description: row.description,
     mediaUrl: row.media_url,
     mediaType: row.media_type as 'image' | 'video',
+    mediaItems: items,
     category: row.category,
     createdAt: row.created_at,
     likes: row.likes ?? 0,
@@ -41,6 +48,7 @@ function cardToRow(card: GalleryCard): Omit<CardRow, 'likes'> {
     description: card.description,
     media_url: card.mediaUrl,
     media_type: card.mediaType,
+    media_items: card.mediaItems,
     category: card.category,
     created_at: card.createdAt,
   }

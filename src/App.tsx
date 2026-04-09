@@ -22,6 +22,7 @@ import ThemeToggle from './components/ThemeToggle'
 import EasterEgg from './components/EasterEgg'
 import Quiz from './components/Quiz'
 import StorySection from './components/StorySection'
+import ColoringBook from './components/ColoringBook'
 import './App.css'
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null)
   const [showCategoryEditor, setShowCategoryEditor] = useState(false)
   const [newCategory, setNewCategory] = useState('')
+  const [showColoringBook, setShowColoringBook] = useState(false)
   const [loading, setLoading] = useState(true)
   const [likedCards, setLikedCards] = useState<Set<string>>(() => {
     try {
@@ -133,8 +135,8 @@ export default function App() {
     }
   }
 
-  const handleAddCategory = async () => {
-    const trimmed = newCategory.trim()
+  const handleAddCategory = async (directName?: string) => {
+    const trimmed = (directName ?? newCategory).trim()
     if (trimmed && !categories.includes(trimmed)) {
       try {
         await addCategoryDB(trimmed)
@@ -277,6 +279,12 @@ export default function App() {
                 ✦ 관리자
               </button>
             )}
+            <button
+              className="add-btn coloring-btn"
+              onClick={() => setShowColoringBook(true)}
+            >
+              🎨 컬러링북
+            </button>
           </div>
         </div>
 
@@ -307,7 +315,7 @@ export default function App() {
                 className="category-input"
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCategory())}
               />
-              <button className="btn-primary btn-sm" onClick={handleAddCategory}>
+              <button className="btn-primary btn-sm" onClick={() => handleAddCategory()}>
                 추가
               </button>
             </div>
@@ -367,8 +375,13 @@ export default function App() {
           card={editingCard}
           categories={categories}
           onSave={handleSaveCard}
+          onAddCategory={handleAddCategory}
           onClose={() => { setShowEditor(false); setEditingCard(null) }}
         />
+      )}
+
+      {showColoringBook && (
+        <ColoringBook onClose={() => setShowColoringBook(false)} />
       )}
 
       {showPasswordModal && (

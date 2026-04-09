@@ -1,60 +1,92 @@
 import { useState, useRef } from 'react'
-import { GalleryCard } from '../types'
+import { GalleryCard, MediaItem } from '../types'
 import { uploadMedia } from '../storage'
 
 interface Props {
   card: GalleryCard | null
   categories: string[]
   onSave: (card: GalleryCard) => void
+  onAddCategory?: (name: string) => void
   onClose: () => void
 }
 
-function detectMediaType(url: string): 'image' | 'video' {
-  const lower = url.toLowerCase()
-  if (lower.startsWith('data:video/') || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(lower)) {
-    return 'video'
-  }
-  return 'image'
-}
-
-export default function CardEditor({ card, categories, onSave, onClose }: Props) {
+export default function CardEditor({ card, categories, onSave, onAddCategory, onClose }: Props) {
   const isNew = card === null
   const [title, setTitle] = useState(card?.title ?? '')
   const [description, setDescription] = useState(card?.description ?? '')
-  const [mediaUrl, setMediaUrl] = useState(card?.mediaUrl ?? '')
-  const [mediaType, setMediaType] = useState<'image' | 'video'>(card?.mediaType ?? 'image')
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>(card?.mediaItems ?? [])
+  const [thumbnailIdx, setThumbnailIdx] = useState(() => {
+    if (!card) return 0
+    const idx = card.mediaItems.findIndex(m => m.url === card.mediaUrl)
+    return idx >= 0 ? idx : 0
+  })
   const [category, setCategory] = useState(card?.category ?? categories[0])
+  const [customCategory, setCustomCategory] = useState('')
+  const [showCustomInput, setShowCustomInput] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // 파일 선택 시 → Supabase Storage에 업로드
+  const handleCategoryChange = (value: string) => {
+    if (value === '__custom__') {
+      setShowCustomInput(true)
+    } else {
+      setCategory(value)
+      setShowCustomInput(false)
+    }
+  }
+
+  const handleAddCustomCategory = () => {
+    const trimmed = customCategory.trim()
+    if (!trimmed) return
+    setCategory(trimmed)
+    setShowCustomInput(false)
+    setCustomCategory('')
+    onAddCategory?.(trimmed)
+  }
+
+  // 복수 파일 선택 → Supabase Storage에 업로드
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
     setUploading(true)
     try {
-      const publicUrl = await uploadMedia(file)   // Supabase Storage 업로드
-      setMediaUrl(publicUrl)
-      setMediaType(file.type.startsWith('video/') ? 'video' : 'image')
+      const newItems: MediaItem[] = []
+      for (const file of Array.from(files)) {
+        const publicUrl = await uploadMedia(file)
+        newItems.push({
+          url: publicUrl,
+          type: file.type.startsWith('video/') ? 'video' : 'image',
+        })
+      }
+      setMediaItems(prev => [...prev, ...newItems])
     } catch (err) {
       console.error('업로드 실패:', err)
       alert('파일 업로드에 실패했습니다. 다시 시도해주세요.')
     } finally {
       setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
     }
+  }
+
+  const removeMedia = (idx: number) => {
+    setMediaItems(prev => prev.filter((_, i) => i !== idx))
+    if (thumbnailIdx === idx) setThumbnailIdx(0)
+    else if (thumbnailIdx > idx) setThumbnailIdx(prev => prev - 1)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !mediaUrl.trim()) return
+    if (!title.trim() || mediaItems.length === 0) return
 
+    const thumb = mediaItems[thumbnailIdx] ?? mediaItems[0]
     const saved: GalleryCard = {
       id: card?.id ?? crypto.randomUUID(),
       title: title.trim(),
       description: description.trim(),
-      mediaUrl: mediaUrl.trim(),
-      mediaType: detectMediaType(mediaUrl) === 'video' ? 'video' : mediaType,
+      mediaUrl: thumb.url,
+      mediaType: thumb.type,
+      mediaItems,
       category,
       createdAt: card?.createdAt ?? new Date().toISOString().slice(0, 10),
       likes: card?.likes ?? 0,
@@ -88,9 +120,9 @@ export default function CardEditor({ card, categories, onSave, onClose }: Props)
             />
           </label>
 
-          {/* File attachment */}
+          {/* 복수 파일 업로드 */}
           <div className="form-label">
-            미디어 파일
+            미디어 파일 (복수 선택 가능)
             <div
               className="file-upload-area"
               onClick={() => fileRef.current?.click()}
@@ -100,6 +132,7 @@ export default function CardEditor({ card, categories, onSave, onClose }: Props)
                 ref={fileRef}
                 type="file"
                 accept="image/*,video/*"
+                multiple
                 onChange={handleFileChange}
                 className="file-input-hidden"
               />
@@ -113,42 +146,88 @@ export default function CardEditor({ card, categories, onSave, onClose }: Props)
                 <span className="file-upload-hint">
                   {uploading
                     ? '잠시만 기다려주세요'
-                    : '클릭하여 파일 선택 (jpg, png, mp4, webm)'}
+                    : '클릭하여 여러 파일 선택 가능 (jpg, png, mp4, webm)'}
                 </span>
               </div>
             </div>
           </div>
 
-          <label className="form-label">
+          {/* 미디어 목록 + 썸네일 지정 */}
+          {mediaItems.length > 0 && (
+            <div className="form-label">
+              등록된 미디어 ({mediaItems.length}개) — ⭐ 클릭으로 썸네일 지정
+              <div className="media-items-grid">
+                {mediaItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`media-item-card ${idx === thumbnailIdx ? 'is-thumb' : ''}`}
+                  >
+                    {item.type === 'video' ? (
+                      <video src={item.url} className="media-item-preview" muted />
+                    ) : (
+                      <img src={item.url} alt={`미디어 ${idx + 1}`} className="media-item-preview" />
+                    )}
+                    <div className="media-item-actions">
+                      <button
+                        type="button"
+                        className={`thumb-btn ${idx === thumbnailIdx ? 'active' : ''}`}
+                        onClick={() => setThumbnailIdx(idx)}
+                        title="썸네일로 지정"
+                      >
+                        {idx === thumbnailIdx ? '⭐' : '☆'}
+                      </button>
+                      <span className="media-item-type">
+                        {item.type === 'video' ? '🎬' : '🖼️'}
+                      </span>
+                      <button
+                        type="button"
+                        className="media-item-remove"
+                        onClick={() => removeMedia(idx)}
+                        title="삭제"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="form-label">
             카테고리
-            <select value={category} onChange={e => setCategory(e.target.value)}>
+            <select
+              value={showCustomInput ? '__custom__' : category}
+              onChange={e => handleCategoryChange(e.target.value)}
+            >
               {categories.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
+              <option value="__custom__">✏️ 직접 입력</option>
             </select>
-          </label>
-
-          {/* Preview */}
-          {mediaUrl && (
-            <div className="preview-media">
-              {mediaType === 'video' ? (
-                <video src={mediaUrl} controls autoPlay muted playsInline className="preview-video" />
-              ) : (
-                <img
-                  src={mediaUrl}
-                  alt="미리보기"
-                  className="preview-img"
-                  onError={e => (e.currentTarget.style.display = 'none')}
+            {showCustomInput && (
+              <div className="custom-category-row">
+                <input
+                  type="text"
+                  value={customCategory}
+                  onChange={e => setCustomCategory(e.target.value)}
+                  placeholder="새 카테고리 이름"
+                  className="category-input"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomCategory() } }}
+                  autoFocus
                 />
-              )}
-            </div>
-          )}
+                <button type="button" className="btn-primary btn-sm" onClick={handleAddCustomCategory}>
+                  추가
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="editor-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>
               취소
             </button>
-            <button type="submit" className="btn-primary" disabled={uploading}>
+            <button type="submit" className="btn-primary" disabled={uploading || mediaItems.length === 0}>
               {isNew ? '등록하기' : '수정하기'}
             </button>
           </div>
