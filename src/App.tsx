@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { GalleryCard } from './types'
-import { defaultCards, DEFAULT_CATEGORIES } from './defaultData'
 import {
   loadCardsDB,
   saveCardDB,
@@ -11,6 +10,7 @@ import {
   incrementLikeDB,
   decrementLikeDB,
 } from './storage'
+import { useAppStore, useUIStore } from './store'
 import GalleryCardItem from './components/GalleryCardItem'
 import PasswordModal from './components/PasswordModal'
 import CardEditor from './components/CardEditor'
@@ -25,33 +25,36 @@ import StorySection from './components/StorySection'
 import ColoringBook from './components/ColoringBook'
 import Diary from './components/Diary'
 import ShootingStars from './components/ShootingStars'
+import { DEFAULT_CATEGORIES } from './defaultData'
 import './App.css'
 
 export default function App() {
-  const [cards, setCards] = useState<GalleryCard[]>(defaultCards)
-  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [showEditor, setShowEditor] = useState(false)
-  const [editingCard, setEditingCard] = useState<GalleryCard | null>(null)
-  const [selectedCard, setSelectedCard] = useState<GalleryCard | null>(null)
-  const [activeFilter, setActiveFilter] = useState('전체')
-  const [pendingAction, setPendingAction] = useState<'add' | 'edit' | 'delete' | null>(null)
-  const [pendingCardId, setPendingCardId] = useState<string | null>(null)
-  const [showCategoryEditor, setShowCategoryEditor] = useState(false)
-  const [newCategory, setNewCategory] = useState('')
-  const [showColoringBook, setShowColoringBook] = useState(false)
-  const [showDiary, setShowDiary] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [likedCards, setLikedCards] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem('juha-liked-cards')
-      return saved ? new Set(JSON.parse(saved)) : new Set()
-    } catch { return new Set() }
-  })
+  const {
+    cards, setCards,
+    categories, setCategories,
+    activeFilter, setActiveFilter,
+    loading, setLoading,
+    likedCards, setLikedCards,
+    isAuthenticated, setIsAuthenticated
+  } = useAppStore()
+
+  const {
+    showPasswordModal, setShowPasswordModal,
+    showEditor, setShowEditor,
+    editingCard, setEditingCard,
+    selectedCard, setSelectedCard,
+    pendingAction, setPendingAction,
+    pendingCardId, setPendingCardId,
+    showCategoryEditor, setShowCategoryEditor,
+    newCategory, setNewCategory,
+    showColoringBook, setShowColoringBook,
+    showDiary, setShowDiary,
+    resetPendingState
+  } = useUIStore()
+
   const isInitRef = useRef(false)
 
-  // ── 앱 시작 시 Supabase에서 데이터 로드 ──
+  // ── 앱 시작 시 Supabase에서 데이터 로드 (및 localStorage 좋아요 로드) ──
   useEffect(() => {
     async function init() {
       try {
@@ -62,6 +65,12 @@ export default function App() {
 
         if (dbCards.length > 0) setCards(dbCards)
         if (dbCats.length > 0) setCategories(dbCats)
+        
+        // localStorage에서 좋아요 복원
+        const savedLikes = localStorage.getItem('juha-liked-cards')
+        if (savedLikes) {
+          setLikedCards(new Set(JSON.parse(savedLikes)))
+        }
       } catch (err) {
         console.error('Supabase 초기 로드 실패, 기본 데이터 사용:', err)
       } finally {
@@ -70,6 +79,7 @@ export default function App() {
       }
     }
     init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const allCategories = ['전체', ...categories]
@@ -98,7 +108,7 @@ export default function App() {
         alert('삭제에 실패했습니다. 다시 시도해주세요.')
       }
     }
-  }, [cards])
+  }, [cards, setEditingCard, setSelectedCard, setShowEditor, setCards])
 
   const requireAuth = useCallback((action: 'add' | 'edit' | 'delete', cardId?: string) => {
     if (isAuthenticated) {
@@ -108,15 +118,14 @@ export default function App() {
       setPendingCardId(cardId ?? null)
       setShowPasswordModal(true)
     }
-  }, [isAuthenticated, executeAction])
+  }, [isAuthenticated, executeAction, setPendingAction, setPendingCardId, setShowPasswordModal])
 
   const handlePasswordSuccess = () => {
     setIsAuthenticated(true)
     setShowPasswordModal(false)
     if (pendingAction) {
       executeAction(pendingAction, pendingCardId ?? undefined)
-      setPendingAction(null)
-      setPendingCardId(null)
+      resetPendingState()
     }
   }
 
@@ -192,10 +201,14 @@ export default function App() {
         })
         setCards(prev => prev.map(c => c.id === cardId ? { ...c, likes: c.likes + 1 } : c))
       }
+      
       // selectedCard가 열려있으면 같이 업데이트
-      if (selectedCard?.id === cardId) {
-        setSelectedCard(prev => prev ? { ...prev, likes: isLiked ? Math.max(0, prev.likes - 1) : prev.likes + 1 } : prev)
-      }
+      setSelectedCard(prev => {
+        if (prev && prev.id === cardId) {
+          return { ...prev, likes: isLiked ? Math.max(0, prev.likes - 1) : prev.likes + 1 }
+        }
+        return prev
+      })
     } catch (err) {
       console.error('좋아요 처리 실패:', err)
     }
@@ -218,15 +231,9 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* 클릭 파티클 효과 */}
       <ClickParticles />
-
-      {/* 테마 토글 (우측 상단 고정) */}
       <ThemeToggle />
-
-      {/* 이스터에그 숨겨진 캐릭터들 */}
       <EasterEgg />
-
       <FloatingMascots />
       <ShootingStars />
 
@@ -235,13 +242,9 @@ export default function App() {
       <div className="ornament ornament-bl" />
       <div className="ornament ornament-br" />
 
-      {/* Hero Video Section */}
       <HeroSection />
-
-      {/* 캐릭터 스토리 섹션 */}
       <StorySection />
 
-      {/* Filter Bar */}
       <nav className="filter-bar">
         <div className="filter-inner">
           <div className="filter-scroll">
@@ -276,7 +279,7 @@ export default function App() {
               <button
                 className="auth-btn"
                 onClick={() => {
-                  setPendingAction(null)
+                  resetPendingState()
                   setShowPasswordModal(true)
                 }}
               >
@@ -298,7 +301,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Category Editor (inline) */}
         {showCategoryEditor && isAuthenticated && (
           <div className="category-editor">
             <div className="category-list">
@@ -333,7 +335,6 @@ export default function App() {
         )}
       </nav>
 
-      {/* Gallery Grid */}
       <main className="gallery">
         <div className="gallery-grid">
           {filteredCards.map((card, index) => (
@@ -357,17 +358,14 @@ export default function App() {
         )}
       </main>
 
-      {/* 심리테스트 퀴즈 버튼 */}
       <Quiz />
 
-      {/* Footer */}
       <footer className="footer">
         <div className="footer-line" />
         <p className="footer-text">✦ Juha — Gallery of Wonders ✦</p>
         <p className="footer-copy">&copy; 2026 Juha. All rights reserved.</p>
       </footer>
 
-      {/* Modals */}
       {selectedCard && !showEditor && (
         <CardDetail
           card={selectedCard}
@@ -403,8 +401,7 @@ export default function App() {
           onSuccess={handlePasswordSuccess}
           onClose={() => {
             setShowPasswordModal(false)
-            setPendingAction(null)
-            setPendingCardId(null)
+            resetPendingState()
           }}
         />
       )}

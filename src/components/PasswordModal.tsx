@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-
-const CORRECT_PASSWORD = '1128'
+import { verifyAdminPassword } from '../storage'
 
 interface Props {
   onSuccess: () => void
@@ -11,15 +10,21 @@ export default function PasswordModal({ onSuccess, onClose }: Props) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
   const [shake, setShake] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password === CORRECT_PASSWORD) {
+    if (!password) return
+    setIsLoading(true)
+    const isValid = await verifyAdminPassword(password)
+    setIsLoading(false)
+    
+    if (isValid) {
       onSuccess()
     } else {
       setError(true)
@@ -55,8 +60,8 @@ export default function PasswordModal({ onSuccess, onClose }: Props) {
             autoComplete="off"
           />
           {error && <p className="error-text">비밀번호가 올바르지 않습니다.</p>}
-          <button type="submit" className="btn-primary">
-            입장하기
+          <button type="submit" className="btn-primary" disabled={isLoading}>
+            {isLoading ? '확인 중...' : '입장하기'}
           </button>
         </form>
       </div>

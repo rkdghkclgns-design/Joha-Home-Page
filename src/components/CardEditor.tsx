@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { GalleryCard, MediaItem } from '../types'
 import { uploadMedia } from '../storage'
+import { generateUUID } from '../utils'
 
 interface Props {
   card: GalleryCard | null
@@ -81,7 +82,7 @@ export default function CardEditor({ card, categories, onSave, onAddCategory, on
 
     const thumb = mediaItems[thumbnailIdx] ?? mediaItems[0]
     const saved: GalleryCard = {
-      id: card?.id ?? crypto.randomUUID(),
+      id: card?.id ?? generateUUID(),
       title: title.trim(),
       description: description.trim(),
       mediaUrl: thumb.url,

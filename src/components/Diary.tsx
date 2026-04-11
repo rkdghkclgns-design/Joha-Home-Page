@@ -1,26 +1,6 @@
 import { useState, useEffect } from 'react'
-
-const DIARY_KEY = 'juha-diary-entries'
-const PASSWORD = '1128'
-
-interface DiaryEntry {
-  id: string
-  date: string
-  title: string
-  content: string
-  mood: string
-}
-
-function loadEntries(): DiaryEntry[] {
-  try {
-    const s = localStorage.getItem(DIARY_KEY)
-    return s ? JSON.parse(s) : []
-  } catch { return [] }
-}
-
-function saveEntries(entries: DiaryEntry[]) {
-  localStorage.setItem(DIARY_KEY, JSON.stringify(entries))
-}
+import { generateUUID } from '../utils'
+import { verifyAdminPassword, loadDiaryDB, saveDiaryDB, deleteDiaryDB, DiaryEntry } from '../storage'
 
 const MOODS = ['😊', '😢', '😡', '🥰', '😴', '🤔', '😎', '🥳', '😰', '🌈']
 
@@ -32,6 +12,7 @@ export default function Diary({ onClose }: Props) {
   const [unlocked, setUnlocked] = useState(false)
   const [pw, setPw] = useState('')
   const [pwError, setPwError] = useState(false)
+  const [checkingPw, setCheckingPw] = useState(false)
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [editing, setEditing] = useState(false)
   const [editEntry, setEditEntry] = useState<DiaryEntry | null>(null)
@@ -41,16 +22,19 @@ export default function Diary({ onClose }: Props) {
   const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null)
 
   useEffect(() => {
-    if (unlocked) setEntries(loadEntries())
+    if (unlocked) {
+      loadDiaryDB().then(setEntries)
+    }
   }, [unlocked])
 
-  useEffect(() => {
-    if (unlocked) saveEntries(entries)
-  }, [entries, unlocked])
-
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pw === PASSWORD) {
+    if (!pw) return
+    setCheckingPw(true)
+    const isValid = await verifyAdminPassword(pw)
+    setCheckingPw(false)
+    
+    if (isValid) {
       setUnlocked(true)
       setPwError(false)
     } else {
@@ -59,20 +43,25 @@ export default function Diary({ onClose }: Props) {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) return
     const entry: DiaryEntry = {
-      id: editEntry?.id ?? crypto.randomUUID(),
+      id: editEntry?.id ?? generateUUID(),
       date: editEntry?.date ?? new Date().toISOString().slice(0, 10),
       title: title.trim(),
       content: content.trim(),
       mood,
     }
+    
+    await saveDiaryDB(entry)
+    
     setEntries(prev => {
       const exists = prev.find(e => e.id === entry.id)
-      if (exists) return prev.map(e => e.id === entry.id ? entry : e)
-      return [entry, ...prev]
+      let next = exists ? prev.map(e => e.id === entry.id ? entry : e) : [entry, ...prev]
+      next.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      return next
     })
+    
     setEditing(false)
     setEditEntry(null)
     setTitle('')
@@ -80,7 +69,8 @@ export default function Diary({ onClose }: Props) {
     setMood('😊')
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    await deleteDiaryDB(id)
     setEntries(prev => prev.filter(e => e.id !== id))
     setSelectedEntry(null)
   }
@@ -121,9 +111,12 @@ export default function Diary({ onClose }: Props) {
                 className={`password-input ${pwError ? 'input-error' : ''}`}
                 autoFocus
                 autoComplete="off"
+                disabled={checkingPw}
               />
-              {pwError && <p className="error-text">비밀번호가 틀렸습니다.</p>}
-              <button type="submit" className="btn-primary">열기 🔑</button>
+              {pwError && <p className="error-text">비밀번호가 올바르지 않습니다.</p>}
+              <button type="submit" className="btn-primary" disabled={checkingPw}>
+                {checkingPw ? '확인 중...' : '열기 🔑'}
+              </button>
             </form>
           </div>
         </div>

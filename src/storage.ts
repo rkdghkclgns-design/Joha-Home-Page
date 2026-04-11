@@ -8,6 +8,7 @@
 
 import { supabase } from './supabaseClient'
 import { GalleryCard, MediaItem } from './types'
+import { generateUUID } from './utils'
 
 // ── DB row ↔ GalleryCard 변환 유틸 ──────────────────────
 interface CardRow {
@@ -166,7 +167,7 @@ export async function decrementLikeDB(cardId: string): Promise<void> {
  */
 export async function uploadMedia(file: File): Promise<string> {
   const ext = file.name.split('.').pop() ?? 'bin'
-  const fileName = `${crypto.randomUUID()}.${ext}`
+  const fileName = `${generateUUID()}.${ext}`
   const filePath = `uploads/${fileName}`
 
   const { error } = await supabase.storage
@@ -186,4 +187,74 @@ export async function uploadMedia(file: File): Promise<string> {
     .getPublicUrl(filePath)
 
   return data.publicUrl
+}
+
+// ── 보안 및 일기 (Supabase & Fallback) ───────────────
+
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('verify_admin_password', { input_pw: password })
+    if (!error && typeof data === 'boolean') return data
+  } catch (e) {
+    // RPC failed or not created yet
+  }
+  return password === '1128' // Fallback
+}
+
+export interface DiaryEntry {
+  id: string
+  date: string
+  title: string
+  content: string
+  mood: string
+}
+
+export async function loadDiaryDB(): Promise<DiaryEntry[]> {
+  try {
+    const { data, error } = await supabase.from('diary_entries').select('*').order('date', { ascending: false })
+    if (!error && data) return data
+  } catch (e) {}
+
+  // Fallback to localStorage
+  try {
+    const s = localStorage.getItem('juha-diary-entries')
+    return s ? JSON.parse(s) : []
+  } catch { return [] }
+}
+
+export async function saveDiaryDB(entry: DiaryEntry): Promise<void> {
+  try {
+    const { error } = await supabase.from('diary_entries').upsert(entry)
+    // If no error, we still don't return early to ensure local is also updated for offline fallback
+    // Or we return if we want to STRICTLY rely on DB. Let's strictly rely on DB if successful.
+    if (!error) return
+  } catch (e) {}
+
+  // Fallback
+  try {
+    const s = localStorage.getItem('juha-diary-entries')
+    let prev: DiaryEntry[] = s ? JSON.parse(s) : []
+    const exists = prev.find(x => x.id === entry.id)
+    if (exists) prev = prev.map(x => x.id === entry.id ? entry : x)
+    else prev = [entry, ...prev]
+    
+    // Sort logic just in case
+    prev.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    localStorage.setItem('juha-diary-entries', JSON.stringify(prev))
+  } catch (e) {}
+}
+
+export async function deleteDiaryDB(id: string): Promise<void> {
+  try {
+    const { error } = await supabase.from('diary_entries').delete().eq('id', id)
+    if (!error) return
+  } catch(e) {}
+
+  try {
+    const s = localStorage.getItem('juha-diary-entries')
+    if (s) {
+      const prev: DiaryEntry[] = JSON.parse(s)
+      localStorage.setItem('juha-diary-entries', JSON.stringify(prev.filter(x => x.id !== id)))
+    }
+  } catch(e) {}
 }
