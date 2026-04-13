@@ -10,11 +10,9 @@ interface Star {
   delay: number
 }
 
-let idCounter = 0
-
 function createStar(): Star {
   return {
-    id: idCounter++,
+    id: Date.now() + Math.random(),
     x: Math.random() * 100,
     y: Math.random() * 40,
     angle: 25 + Math.random() * 30,
@@ -37,30 +35,24 @@ export default function ShootingStars() {
     return () => observer.disconnect()
   }, [])
 
-  // 별똥별 생성 주기
+  // 별똥별 생성 + 정리 단일 타이머
   useEffect(() => {
     if (!isDark) { setStars([]); return }
 
-    const spawn = () => {
+    const tick = () => {
       setStars(prev => {
-        const next = [...prev, createStar()]
-        return next.slice(-6) // 최대 6개 유지
+        const now = Date.now()
+        // 오래된 별 제거 (2초 이상)
+        const alive = prev.filter(s => now - s.id < 2000)
+        // 새 별 추가
+        return [...alive, createStar()].slice(-6)
       })
     }
 
-    spawn()
-    const interval = setInterval(spawn, 2000 + Math.random() * 3000)
+    tick()
+    const interval = setInterval(tick, 2500 + Math.random() * 2000)
     return () => clearInterval(interval)
   }, [isDark])
-
-  // 오래된 별 제거
-  useEffect(() => {
-    if (stars.length === 0) return
-    const timer = setTimeout(() => {
-      setStars(prev => prev.slice(1))
-    }, 2000)
-    return () => clearTimeout(timer)
-  }, [stars])
 
   if (!isDark || stars.length === 0) return null
 

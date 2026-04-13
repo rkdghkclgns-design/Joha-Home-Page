@@ -14,17 +14,23 @@ interface Particle {
 }
 
 const CHARS = ['💖', '✨', '⭐', '🌟', '💫', '🩷', '🌸', '🦋']
+const THROTTLE_MS = 1000
 
 export default function ClickParticles() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const particles = useRef<Particle[]>([])
   const frameRef = useRef<number>(0)
+  const lastSpawnRef = useRef<number>(0)
 
   const spawnParticles = useCallback((x: number, y: number) => {
-    const count = 8 + Math.floor(Math.random() * 5)
+    const now = Date.now()
+    if (now - lastSpawnRef.current < THROTTLE_MS) return
+    lastSpawnRef.current = now
+
+    const count = 6 + Math.floor(Math.random() * 4)
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5
-      const speed = 2 + Math.random() * 4
+      const speed = 2 + Math.random() * 3
       particles.current.push({
         x,
         y,
@@ -33,9 +39,9 @@ export default function ClickParticles() {
         life: 1,
         maxLife: 0.6 + Math.random() * 0.4,
         char: CHARS[Math.floor(Math.random() * CHARS.length)],
-        size: 14 + Math.random() * 14,
+        size: 14 + Math.random() * 10,
         rotation: Math.random() * 360,
-        rotSpeed: (Math.random() - 0.5) * 10,
+        rotSpeed: (Math.random() - 0.5) * 8,
       })
     }
   }, [])
@@ -53,10 +59,13 @@ export default function ClickParticles() {
     resize()
     window.addEventListener('resize', resize)
 
-    const handleClick = (e: MouseEvent) => {
-      spawnParticles(e.clientX, e.clientY)
+    const handleClick = (e: MouseEvent) => spawnParticles(e.clientX, e.clientY)
+    const handleTouch = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (t) spawnParticles(t.clientX, t.clientY)
     }
     window.addEventListener('click', handleClick)
+    window.addEventListener('touchstart', handleTouch, { passive: true })
 
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -66,7 +75,7 @@ export default function ClickParticles() {
       for (const p of particles.current) {
         p.x += p.vx
         p.y += p.vy
-        p.vy += 0.08 // gravity
+        p.vy += 0.08
         p.vx *= 0.98
         p.life -= 0.02 / p.maxLife
         p.rotation += p.rotSpeed
@@ -92,6 +101,7 @@ export default function ClickParticles() {
     return () => {
       window.removeEventListener('resize', resize)
       window.removeEventListener('click', handleClick)
+      window.removeEventListener('touchstart', handleTouch)
       cancelAnimationFrame(frameRef.current)
     }
   }, [spawnParticles])
@@ -103,7 +113,7 @@ export default function ClickParticles() {
         position: 'fixed',
         inset: 0,
         pointerEvents: 'none',
-        zIndex: 9999,
+        zIndex: 9998,
       }}
     />
   )

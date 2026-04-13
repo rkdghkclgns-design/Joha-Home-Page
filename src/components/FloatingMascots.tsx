@@ -54,7 +54,7 @@ export default function FloatingMascots() {
 
   useEffect(() => {
     const w = window.innerWidth
-    const h = document.documentElement.scrollHeight || window.innerHeight
+    const h = window.innerHeight
     const initial = MASCOTS.map((m, i) => createMascot(i, m, w, h))
     setMascots(initial)
   }, [])
@@ -62,7 +62,7 @@ export default function FloatingMascots() {
   const animate = useCallback(() => {
     setMascots(prev => {
       const w = window.innerWidth
-      const h = Math.max(document.documentElement.scrollHeight, window.innerHeight)
+      const h = window.innerHeight
       return prev.map(m => {
         let nx = m.x + m.vx
         let ny = m.y + m.vy

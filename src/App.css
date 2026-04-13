@@ -318,6 +318,8 @@
   gap: 0.35rem;
   align-items: center;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .filter-btn {
@@ -1248,18 +1250,28 @@ video.detail-image {
 
   .filter-actions {
     width: 100%;
-    justify-content: flex-end;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    gap: 0.25rem;
+  }
+  .filter-actions::-webkit-scrollbar {
+    display: none;
   }
 
   .filter-btn {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
     flex-shrink: 0;
   }
 
   .add-btn, .auth-btn {
-    padding: 0.35rem 0.75rem;
-    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .detail-image {
