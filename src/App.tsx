@@ -247,6 +247,7 @@ export default function App() {
 
       <nav className="filter-bar">
         <div className="filter-inner">
+          {/* 모든 버튼을 하나의 가로 스크롤 영역에 배치 */}
           <div className="filter-scroll">
             {allCategories.map(cat => (
               <button
@@ -257,8 +258,7 @@ export default function App() {
                 {cat}
               </button>
             ))}
-          </div>
-          <div className="filter-actions">
+            <span className="filter-divider" />
             {isAuthenticated && (
               <>
                 <button className="add-btn" onClick={() => requireAuth('add')}>

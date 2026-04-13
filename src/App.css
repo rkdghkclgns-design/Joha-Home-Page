@@ -300,26 +300,27 @@
 .filter-inner {
   max-width: var(--max-width);
   margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
 }
 
 .filter-scroll {
   display: flex;
   gap: 0.35rem;
-  flex-wrap: wrap;
-  flex: 1;
+  align-items: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.filter-scroll::-webkit-scrollbar {
+  display: none;
 }
 
-.filter-actions {
-  display: flex;
-  gap: 0.35rem;
-  align-items: center;
+.filter-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(196, 162, 101, 0.25);
   flex-shrink: 0;
-  flex-wrap: wrap;
-  flex-shrink: 0;
+  margin: 0 0.15rem;
 }
 
 .filter-btn {
@@ -331,6 +332,8 @@
   background: transparent;
   border: 1px solid transparent;
   transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 .filter-btn:hover {
@@ -1229,36 +1232,6 @@ video.detail-image {
 
   .filter-bar {
     padding: 0.5rem 0.75rem;
-  }
-
-  .filter-inner {
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .filter-scroll {
-    width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-  .filter-scroll::-webkit-scrollbar {
-    display: none;
-  }
-
-  .filter-actions {
-    width: 100%;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    justify-content: flex-start;
-    gap: 0.25rem;
-  }
-  .filter-actions::-webkit-scrollbar {
-    display: none;
   }
 
   .filter-btn {
