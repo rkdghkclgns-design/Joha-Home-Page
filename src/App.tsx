@@ -247,7 +247,7 @@ export default function App() {
 
       <nav className="filter-bar">
         <div className="filter-inner">
-          {/* 모든 버튼을 하나의 가로 스크롤 영역에 배치 */}
+          {/* 카테고리 스크롤 영역 */}
           <div className="filter-scroll">
             {allCategories.map(cat => (
               <button
@@ -258,20 +258,22 @@ export default function App() {
                 {cat}
               </button>
             ))}
-            <span className="filter-divider" />
+          </div>
+          {/* 액션 버튼 — 항상 보이는 고정 영역 */}
+          <div className="filter-actions">
             {isAuthenticated && (
               <>
                 <button className="add-btn" onClick={() => requireAuth('add')}>
-                  + 새 작품
+                  +
                 </button>
                 <button
                   className="add-btn"
                   onClick={() => setShowCategoryEditor(prev => !prev)}
                 >
-                  카테고리 편집
+                  편집
                 </button>
                 <button className="auth-btn active-auth" onClick={handleLogout}>
-                  적용하기
+                  적용
                 </button>
               </>
             )}
@@ -290,13 +292,13 @@ export default function App() {
               className="add-btn coloring-btn"
               onClick={() => setShowColoringBook(true)}
             >
-              🎨 컬러링북
+              🎨
             </button>
             <button
               className="add-btn diary-btn"
               onClick={() => setShowDiary(true)}
             >
-              📖 일기장
+              📖
             </button>
           </div>
         </div>

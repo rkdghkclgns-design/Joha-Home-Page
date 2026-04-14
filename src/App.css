@@ -300,6 +300,9 @@
 .filter-inner {
   max-width: var(--max-width);
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .filter-scroll {
@@ -310,9 +313,18 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding-bottom: 2px;
+  flex: 1;
+  min-width: 0;
 }
 .filter-scroll::-webkit-scrollbar {
   display: none;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .filter-divider {
